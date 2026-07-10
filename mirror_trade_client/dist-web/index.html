@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no"
+    />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <title>MirrorTrade</title>
+    <style id="expo-reset">
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        background: #0b0e14;
+        overflow: hidden;
+      }
+      /* OUTSIDE React — always visible so we know which HTML file loaded */
+      #mt-version {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 2147483647;
+        background: #ff2d55;
+        color: #fff;
+        font: 700 15px/1.3 system-ui, sans-serif;
+        text-align: center;
+        padding: 12px 10px;
+        letter-spacing: 0.3px;
+      }
+      #root {
+        position: fixed;
+        top: 48px;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        background: #0b0e14;
+      }
+      #mt-boot {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: #0b0e14;
+        color: #f4f6fb;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        text-align: center;
+        padding: 24px;
+      }
+      #mt-boot .logo {
+        width: 72px;
+        height: 72px;
+        border-radius: 18px;
+        background: linear-gradient(135deg, #5b6cff, #8b5cf6);
+        margin-bottom: 16px;
+        box-shadow: 0 8px 24px rgba(91, 108, 255, 0.45);
+      }
+      #mt-boot h1 {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 700;
+      }
+      #mt-boot p {
+        margin: 10px 0 0;
+        color: #8b93a7;
+        font-size: 14px;
+      }
+      #mt-boot .err {
+        color: #ff6b6b;
+        max-width: 420px;
+        margin-top: 16px;
+        font-size: 13px;
+        line-height: 1.45;
+      }
+    </style>
+  <meta name="theme-color" content="#0B0E14">
+<link rel="icon" href="/favicon.ico"/><link rel="preload" href="/_expo/static/css/web-81282f18d70b8908a9a12aa1fb570b51.css" as="style">
+<link rel="stylesheet" href="/_expo/static/css/web-81282f18d70b8908a9a12aa1fb570b51.css"></head>
+
+  <body>
+    <div id="mt-version">
+      BUILD DIAG-8 · http://localhost:3456 · pink bar = new HTML loaded
+    </div>
+
+    <noscript>Enable JavaScript to run MirrorTrade.</noscript>
+
+    <div id="root">
+      <div id="mt-boot">
+        <div class="logo"></div>
+        <h1>MirrorTrade</h1>
+        <p id="mt-boot-msg">Loading app…</p>
+        <p class="err" id="mt-boot-err" style="display: none"></p>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        var boot = document.getElementById("mt-boot");
+        var msg = document.getElementById("mt-boot-msg");
+        var err = document.getElementById("mt-boot-err");
+
+        function hideBoot() {
+          if (boot && boot.parentNode) boot.parentNode.removeChild(boot);
+        }
+
+        var obs = new MutationObserver(function () {
+          var root = document.getElementById("root");
+          if (!root) return;
+          var kids = root.children;
+          for (var i = 0; i < kids.length; i++) {
+            if (kids[i].id !== "mt-boot") {
+              hideBoot();
+              obs.disconnect();
+              return;
+            }
+          }
+        });
+        var root = document.getElementById("root");
+        if (root) obs.observe(root, { childList: true, subtree: true });
+
+        setTimeout(function () {
+          if (!document.getElementById("mt-boot")) return;
+          if (msg) msg.textContent = "Still loading…";
+          if (err) {
+            err.style.display = "block";
+            err.innerHTML =
+              "JS bundle slow/failed. Press F12 → Console.<br/>" +
+              "Hard refresh: Ctrl+Shift+R<br/>" +
+              "Use: <b>http://localhost:3456</b>";
+          }
+        }, 10000);
+
+        window.addEventListener("error", function (e) {
+          if (!err) return;
+          err.style.display = "block";
+          err.textContent = "JS error: " + (e.message || "unknown");
+        });
+      })();
+    </script>
+  <script src="/_expo/static/js/web/index-c075052e649d62778f5dd5748d1469e2.js" defer></script>
+</body>
+</html>

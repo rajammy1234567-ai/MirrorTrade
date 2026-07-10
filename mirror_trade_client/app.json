@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "MirrorTrade",
+    "slug": "mirror_trade_client",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "scheme": "mirrortrade",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mirrortrade.client"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0f172a",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "package": "com.mirrortrade.client",
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single",
+      "name": "MirrorTrade",
+      "shortName": "MirrorTrade",
+      "lang": "en",
+      "themeColor": "#0B0E14",
+      "backgroundColor": "#0B0E14",
+      "display": "standalone"
+    }
+  }
+}

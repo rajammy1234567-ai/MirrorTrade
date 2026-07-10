@@ -1,0 +1,17 @@
+export const colors = {
+  bg: "#0B0E14",
+  surface: "#12161F",
+  card: "#151A24",
+  elevated: "#1A2030",
+  border: "#252B3A",
+  muted: "#8B93A7",
+  text: "#F4F6FB",
+  primary: "#5B6CFF",
+  primaryEnd: "#8B5CF6",
+  primarySoft: "rgba(91, 108, 255, 0.15)",
+  profit: "#00D084",
+  loss: "#FF3B5C",
+  warn: "#F5A524",
+  greenBtn: "#00C853",
+  chipBg: "#1C2230",
+} as const;

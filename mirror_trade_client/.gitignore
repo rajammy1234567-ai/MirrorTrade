@@ -1,7 +1,7 @@
 node_modules/
+.expo/
+dist/
 .env
 .DS_Store
 *.log
-dist/
-.expo/
-coverage/
+web-build/
