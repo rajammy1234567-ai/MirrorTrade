@@ -1,327 +1,614 @@
-import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import React, { useState, useEffect } from "react";
+import { Pressable, StyleSheet, Text, View, ScrollView, Image, ImageBackground } from "react-native";
+import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import Screen from "../components/Screen";
-import TradingChart from "../components/TradingChart";
-import PnlText from "../components/PnlText";
-import SectionHeader from "../components/SectionHeader";
-import { portfolio } from "../data/mock";
-import { useAppData } from "../context/AppDataContext";
+import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "../context/AuthContext";
 import { RootStackParamList } from "../navigation/types";
-import { colors } from "../theme/colors";
+import { traders, portfolio } from "../data/mock";
 
-const actions = [
-  {
-    key: "copy",
-    label: "Copy Trader",
-    icon: "copy-outline" as const,
-    tab: "Discover" as const,
-  },
-  {
-    key: "bots",
-    label: "Run Bot",
-    icon: "hardware-chip-outline" as const,
-    tab: "Trade" as const,
-  },
-  {
-    key: "signals",
-    label: "Signals",
-    icon: "radio-outline" as const,
-    route: "Signals" as const,
-  },
+const APP_BG = "#1A1B26"; // Rich midnight dark theme from reference
+const CARD_BG = "#242633"; // Slightly lighter for cards
+const YELLOW = "#FFD143";
+
+const gridActions = [
+  { label: "Reward Hub", icon: "gift", route: "Referral" },
+  { label: "Profit", icon: "chart-line", tab: "Portfolio" },
+  { label: "Invest Control", icon: "shield-alt", route: "Security" },
+  { label: "Coaches", icon: "user-tie", tab: "Discover" },
+  { label: "Prize Pool", icon: "box-open", route: "Referral" },
+  { label: "API Connect", icon: "plug", route: "ExchangeConnect" },
+  { label: "Invite Friends", icon: "user-plus", route: "Referral" },
+  { label: "More", icon: "th-large", route: "TradingPrefs" },
 ];
-
-function greeting() {
-  const h = new Date().getHours();
-  if (h < 12) return "Good morning,";
-  if (h < 17) return "Good afternoon,";
-  return "Good evening,";
-}
 
 export default function HomeScreen() {
   const { user } = useAuth();
-  const { positions, unreadCount } = useAppData();
-  const navigation =
-    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const tabNav = useNavigation<any>();
-  const name = user?.name || "Trader";
 
-  const openPnl = positions.reduce((s, p) => s + p.pnl, 0);
+  const [activeMainTab, setActiveMainTab] = useState("Profit");
+  const [activeSubTab, setActiveSubTab] = useState("Automated");
+  const [activeFilter, setActiveFilter] = useState("90 Days");
+
+  const [timeLeft, setTimeLeft] = useState({ h: 14, m: 21, s: 39 });
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        let { h, m, s } = prev;
+        if (s > 0) s--;
+        else {
+          s = 59;
+          if (m > 0) m--;
+          else {
+            m = 59;
+            h = h > 0 ? h - 1 : 23;
+          }
+        }
+        return { h, m, s };
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const pad = (n: number) => n.toString().padStart(2, "0");
+
+  const topTraders = traders.slice(0, 3).map((t, index) => ({
+    ...t,
+    rank: index + 1,
+    earning: (t.roi30d * 125).toLocaleString(undefined, { minimumFractionDigits: 2 }),
+    vip: `T-VIP${6 - index}`,
+    flag: ["🇷🇼", "🇮🇩", "🇺🇸"][index % 3],
+    avatarImg: `https://i.pravatar.cc/100?u=${t.id}`,
+  }));
+
+  const handleAction = (item: any) => {
+    if (item.route) navigation.navigate(item.route as any);
+    else if (item.tab) tabNav.navigate(item.tab);
+  };
 
   return (
-    <Screen tabScreen>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.greet}>{greeting()}</Text>
-          <Text style={styles.name}>
-            {name} <Text style={styles.wave}>👋</Text>
-          </Text>
-        </View>
-        <Pressable
-          style={styles.bell}
-          onPress={() => navigation.navigate("Notifications")}
-        >
-          <Ionicons name="notifications-outline" size={18} color={colors.text} />
-          {unreadCount > 0 ? (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>
-                {unreadCount > 9 ? "9+" : unreadCount}
-              </Text>
-            </View>
-          ) : null}
-        </Pressable>
-      </View>
-
-      <View style={styles.portfolioCard}>
-        <Text style={styles.cardLabel}>Total Portfolio Value</Text>
-        <Text style={styles.portfolioValue}>
-          $
-          {portfolio.totalValue.toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-          })}
-        </Text>
-        <View style={styles.pnlRow}>
-          <View style={styles.pnlChip}>
-            <Ionicons name="arrow-up" size={12} color={colors.profit} />
-            <PnlText value={portfolio.todayPnl} prefix="$" size="sm" />
-          </View>
-          <View style={styles.pnlChip}>
-            <PnlText value={portfolio.todayPnlPct} suffix="%" size="sm" />
-            <Text style={styles.today}>today</Text>
-          </View>
-          <View style={styles.pnlChipMuted}>
-            <Text style={styles.mutedChip}>
-              Open PnL{" "}
-              <Text style={{ color: openPnl >= 0 ? colors.profit : colors.loss }}>
-                {openPnl >= 0 ? "+" : ""}${openPnl.toFixed(0)}
-              </Text>
-            </Text>
-          </View>
-        </View>
-        <View style={styles.chartWrap}>
-          <TradingChart
-            height={200}
-            positive
-            showVolume
-            showAxis
-            showRanges
-            seed={portfolio.chartSeed}
-            startPrice={portfolio.chartStart}
-            color={colors.profit}
-            labels={portfolio.chartLabels}
-          />
-        </View>
-      </View>
-
-      <SectionHeader title="Quick Actions" />
-      <View style={styles.actions}>
-        {actions.map((a) => (
-          <Pressable
-            key={a.key}
-            onPress={() => {
-              if (a.route) navigation.navigate(a.route);
-              else if (a.tab) tabNav.navigate(a.tab);
-            }}
-            style={styles.actionCard}
-          >
-            <View style={styles.actionIcon}>
-              <Ionicons name={a.icon} size={20} color={colors.primary} />
-            </View>
-            <Text style={styles.actionLabel}>{a.label}</Text>
+    <View style={styles.container}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        
+        {/* TOP NAV */}
+        <View style={styles.topNav}>
+          <Pressable style={styles.profileIconWrap} onPress={() => tabNav.navigate("Profile")}>
+            <Ionicons name="person" size={18} color="#fff" />
           </Pressable>
-        ))}
-      </View>
-
-      <SectionHeader
-        title="Active Positions"
-        actionLabel="View all"
-        onAction={() => tabNav.navigate("Portfolio")}
-      />
-
-      <View style={styles.list}>
-        {positions.length === 0 ? (
-          <View style={styles.emptyPos}>
-            <Text style={styles.emptyPosText}>
-              No open positions — copy a trader or run a bot
-            </Text>
+          <View style={styles.topNavRight}>
+            <Pressable style={styles.navIcon}><Ionicons name="paper-plane-outline" size={24} color="#fff" /></Pressable>
+            <Pressable style={styles.navIcon}><Ionicons name="time-outline" size={26} color="#fff" /></Pressable>
+            <Pressable style={styles.navIcon} onPress={() => navigation.navigate("Notifications")}>
+              <Ionicons name="notifications-outline" size={26} color="#fff" />
+            </Pressable>
           </View>
-        ) : (
-          positions.map((p) => {
-            const up = p.pnlPct >= 0;
-            return (
-              <View key={p.id} style={styles.posCard}>
-                <View
-                  style={[
-                    styles.sideIcon,
-                    {
-                      backgroundColor: up
-                        ? "rgba(0,208,132,0.12)"
-                        : "rgba(255,59,92,0.12)",
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name={up ? "trending-up" : "trending-down"}
-                    size={16}
-                    color={up ? colors.profit : colors.loss}
-                  />
-                </View>
-                <View style={styles.posMid}>
-                  <Text style={styles.pair}>{p.pair}</Text>
-                  <Text style={styles.source}>{p.source}</Text>
-                </View>
-                <View style={styles.posRight}>
-                  <PnlText value={p.pnlPct} suffix="%" size="md" />
-                  <PnlText value={p.pnl} prefix="$" size="sm" bold={false} />
+        </View>
+
+        {/* INVITE BANNER */}
+        <Pressable onPress={() => navigation.navigate("Referral")}>
+          <View style={styles.inviteBanner}>
+            <View style={styles.inviteLeft}>
+              <Image source={{uri: "https://cdn-icons-png.flaticon.com/512/4213/4213958.png"}} style={styles.giftIcon} />
+              <View>
+                <Text style={styles.inviteText}>Invite 3 Direct Members</Text>
+                <Text style={styles.inviteBonus}>+10 USDT</Text>
+              </View>
+            </View>
+            <View style={styles.inviteBtn}>
+              <Text style={styles.inviteBtnText}>Invite Now</Text>
+            </View>
+          </View>
+        </Pressable>
+
+        {/* VIP CARDS */}
+        <View style={styles.vipRow}>
+          <LinearGradient colors={["#DEB887", "#B8860B"]} start={{x:0,y:0}} end={{x:1,y:1}} style={styles.vipCard}>
+            <MaterialCommunityIcons name="crown" size={20} color="#fff" style={styles.vipIcon} />
+            <Text style={styles.vipText}>C-VIP</Text>
+          </LinearGradient>
+          <LinearGradient colors={["#FFD700", "#FF8C00"]} start={{x:0,y:0}} end={{x:1,y:1}} style={styles.vipCard}>
+            <MaterialCommunityIcons name="diamond-stone" size={20} color="#fff" style={styles.vipIcon} />
+            <Text style={styles.vipText}>T-VIP</Text>
+          </LinearGradient>
+          <LinearGradient colors={["#C77DFF", "#7B2CBF"]} start={{x:0,y:0}} end={{x:1,y:1}} style={styles.vipCard}>
+            <MaterialCommunityIcons name="shield-star" size={20} color="#fff" style={styles.vipIcon} />
+            <Text style={styles.vipText}>S-VIP</Text>
+          </LinearGradient>
+        </View>
+
+        {/* GRID MENU */}
+        <View style={styles.grid}>
+          {gridActions.map((item, i) => (
+            <Pressable key={i} style={styles.gridItem} onPress={() => handleAction(item)}>
+              <FontAwesome5 name={item.icon} size={22} color="#E2E8F0" />
+              <Text style={styles.gridLabel}>{item.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {/* ANNOUNCEMENT */}
+        <View style={styles.announcement}>
+          <Ionicons name="volume-medium-outline" size={20} color="#94A3B8" />
+          <Text style={styles.announceText}>MirrorTrade analyzes market trends for you.</Text>
+          <Ionicons name="menu-outline" size={22} color="#94A3B8" />
+        </View>
+
+        {/* RANKING SECTION WITH TROPHY BG */}
+        <View style={styles.rankingContainer}>
+          {/* Trophy Background Image */}
+          <Image 
+            source={{uri: "https://cdn-icons-png.flaticon.com/512/3176/3176294.png"}} 
+            style={styles.trophyBg} 
+            resizeMode="contain"
+          />
+
+          <Text style={styles.rankingTitle}>Ranking</Text>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rankingTabs}>
+            {["Profit", "Commission", "Rewards", "Points", "S-Vol"].map(tab => (
+              <Pressable key={tab} onPress={() => setActiveMainTab(tab)} style={styles.rTabBtn}>
+                <Text style={[styles.rTab, activeMainTab === tab && styles.rTabActive]}>{tab}</Text>
+                {activeMainTab === tab && <View style={styles.rTabIndicator} />}
+              </Pressable>
+            ))}
+            <Ionicons name="settings-outline" size={18} color="#94A3B8" style={{marginLeft: 10}}/>
+          </ScrollView>
+
+          {/* SUB TABS */}
+          <View style={styles.subTabsWrap}>
+            <View style={styles.subTabs}>
+              {["Automated", "Signal", "Manual"].map(tab => (
+                <Pressable key={tab} style={[styles.subTab, activeSubTab === tab && styles.subTabActive]} onPress={() => setActiveSubTab(tab)}>
+                  <Text style={[styles.subTabText, activeSubTab === tab && styles.subTabTextActive]}>{tab}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+          
+          <Text style={styles.infoText}>Automated data includes both AI Brain and KOL Brain.</Text>
+
+          {/* PILL FILTERS */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterPills}>
+            {["90 Days", "30 Days", "15 Days", "1 Day"].map(filter => (
+              <Pressable key={filter} style={[styles.pill, activeFilter === filter && styles.pillActive]} onPress={() => setActiveFilter(filter)}>
+                <Text style={[styles.pillText, activeFilter === filter && styles.pillTextActive]}>{filter}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+
+          <Text style={styles.updateText}>Next Ranking update: {pad(timeLeft.h)} : {pad(timeLeft.m)} : {pad(timeLeft.s)}</Text>
+
+          {/* MY RANKING */}
+          <View style={styles.myRankingCard}>
+            <View style={styles.myRankLeft}>
+              <View style={{flexDirection: "row", alignItems: "center"}}>
+                <Text style={styles.myRankBadge}>My Ranking</Text>
+                <Ionicons name="help-circle-outline" size={14} color="#94A3B8" style={{marginLeft:4}} />
+              </View>
+              <View style={{flexDirection: "row", alignItems: "center", marginTop: 10}}>
+                <Text style={styles.myRankNum}>50+</Text>
+                <View style={styles.coinIcon}><Text style={{color:"#fff", fontWeight:"bold", fontSize: 18}}>₮</Text></View>
+                <View style={{marginLeft: 12}}>
+                  <Text style={styles.myEmail}>{user?.email?.replace(/(.{2})(.*)(@.*)/, "$1***$3") || "ku***@gmail.com"}</Text>
+                  <View style={{flexDirection: "row", alignItems: "center", marginTop: 4}}>
+                    <Text style={{fontSize: 12}}>🇮🇳</Text>
+                    <View style={styles.tvipBadge}>
+                      <Text style={styles.tvipText}>T-VIP1</Text>
+                    </View>
+                  </View>
                 </View>
               </View>
-            );
-          })
-        )}
-      </View>
-    </Screen>
+            </View>
+            <View style={styles.myRankRight}>
+              <Text style={styles.earningLabel}>Earning</Text>
+              <Text style={styles.earningValue}>0.00 <Text style={styles.usdt}>USDT</Text></Text>
+            </View>
+          </View>
+
+          {/* LIST HEADER */}
+          <View style={styles.listHeader}>
+            <Text style={styles.listColText}>Profit Ranking</Text>
+            <Text style={styles.listColText}>Earning</Text>
+          </View>
+
+          {/* LIST ITEMS */}
+          {topTraders.map((r, i) => (
+            <Pressable key={r.id} style={styles.rankItem} onPress={() => navigation.navigate("TraderDetail", { traderId: r.id })}>
+              <View style={styles.rankItemLeft}>
+                <ImageBackground 
+                  source={{ uri: i === 0 ? "https://cdn-icons-png.flaticon.com/512/744/744922.png" : i === 1 ? "https://cdn-icons-png.flaticon.com/512/744/744984.png" : "https://cdn-icons-png.flaticon.com/512/744/744986.png" }}
+                  style={styles.medalBg}
+                  imageStyle={{tintColor: i===0?"#FFD700":i===1?"#C0C0C0":"#CD7F32"}}
+                >
+                  <Text style={styles.medalText}>{r.rank}</Text>
+                </ImageBackground>
+                <Image source={{ uri: r.avatarImg }} style={styles.avatarImg} />
+                <View style={{marginLeft: 12}}>
+                  <Text style={styles.rName}>{r.name}</Text>
+                  <View style={{flexDirection: "row", alignItems: "center", marginTop: 4}}>
+                    <Text style={{fontSize: 12}}>{r.flag}</Text>
+                    <View style={styles.tvipBadgeRank}>
+                      <Text style={styles.tvipText}>{r.vip}</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+              <Text style={styles.rEarning}>+{r.earning} <Text style={styles.usdt}>USDT</Text></Text>
+            </Pressable>
+          ))}
+          
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    marginTop: 4,
+  container: {
+    flex: 1,
+    backgroundColor: APP_BG,
+    paddingTop: 45, // Safe area approx
+  },
+  scrollContent: {
+    paddingBottom: 40,
+  },
+  topNav: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 20,
+  },
+  profileIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#CBD5E1",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  topNavRight: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 16,
+  },
+  navIcon: {
+    padding: 2,
+  },
+  inviteBanner: {
+    marginHorizontal: 16,
+    backgroundColor: CARD_BG,
+    borderRadius: 12,
+    padding: 14,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  inviteLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  giftIcon: {
+    width: 40, 
+    height: 40, 
+    marginRight: 12
+  },
+  inviteText: {
+    color: "#CBD5E1",
+    fontSize: 13,
+  },
+  inviteBonus: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "900",
+    marginTop: 2,
+  },
+  inviteBtn: {
+    backgroundColor: YELLOW,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  inviteBtnText: {
+    color: "#000",
+    fontWeight: "800",
+    fontSize: 13,
+  },
+  vipRow: {
+    flexDirection: "row",
+    paddingHorizontal: 16,
+    marginTop: 20,
     justifyContent: "space-between",
   },
-  greet: { fontSize: 13, color: colors.muted },
-  name: {
-    marginTop: 2,
-    fontSize: 22,
-    fontWeight: "700",
-    color: colors.text,
-  },
-  wave: { fontSize: 20 },
-  bell: {
-    height: 42,
-    width: 42,
-    borderRadius: 21,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
+  vipCard: {
+    flex: 1,
+    flexDirection: "row",
+    height: 65,
+    borderRadius: 12,
+    marginHorizontal: 4,
     alignItems: "center",
     justifyContent: "center",
+    gap: 6,
   },
-  badge: {
-    position: "absolute",
-    top: 4,
-    right: 4,
-    minWidth: 16,
-    height: 16,
+  vipIcon: {
+    opacity: 0.8,
+  },
+  vipText: {
+    color: "#fff",
+    fontWeight: "900",
+    fontSize: 16,
+    fontStyle: "italic",
+  },
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    paddingHorizontal: 8,
+    marginTop: 24,
+  },
+  gridItem: {
+    width: "25%",
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  gridLabel: {
+    color: "#F8FAFC",
+    fontSize: 12,
+    marginTop: 10,
+    fontWeight: "600",
+  },
+  announcement: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: CARD_BG,
+    marginHorizontal: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     borderRadius: 8,
-    backgroundColor: colors.loss,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 3,
+    justifyContent: "space-between",
   },
-  badgeText: { color: "#fff", fontSize: 9, fontWeight: "800" },
-  portfolioCard: {
-    marginTop: 18,
+  announceText: {
+    color: "#CBD5E1",
+    fontSize: 13,
+    flex: 1,
+    marginLeft: 12,
+  },
+  rankingContainer: {
+    marginTop: 24,
+    paddingHorizontal: 16,
+    position: "relative",
+  },
+  trophyBg: {
+    position: "absolute",
+    right: -20,
+    top: 20,
+    width: 200,
+    height: 200,
+    opacity: 0.1,
+    zIndex: -1,
+  },
+  rankingTitle: {
+    color: "#D4AF37", // A darker gold text for Ranking
+    fontSize: 32,
+    fontWeight: "900",
+    fontStyle: "italic",
+    textShadowColor: "rgba(212, 175, 55, 0.4)",
+    textShadowOffset: {width: 0, height: 2},
+    textShadowRadius: 10,
+  },
+  rankingTabs: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    marginTop: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#334155",
+  },
+  rTabBtn: {
+    marginRight: 24,
+    position: "relative",
+    paddingBottom: 10,
+  },
+  rTab: {
+    color: "#94A3B8",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  rTabActive: {
+    color: "#fff",
+  },
+  rTabIndicator: {
+    position: "absolute",
+    bottom: -1,
+    left: 0,
+    right: 0,
+    height: 3,
+    backgroundColor: YELLOW,
+    borderRadius: 2,
+  },
+  subTabsWrap: {
+    marginTop: 16,
+    alignItems: "center",
+  },
+  subTabs: {
+    flexDirection: "row",
+    backgroundColor: "rgba(255,255,255,0.03)",
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-    paddingTop: 18,
-    paddingHorizontal: 14,
-    paddingBottom: 14,
-    overflow: "hidden",
+    borderColor: "#334155",
+    width: "100%",
   },
-  cardLabel: { fontSize: 12, color: colors.muted, fontWeight: "500" },
-  portfolioValue: {
-    marginTop: 8,
-    fontSize: 32,
-    fontWeight: "700",
-    color: colors.text,
-    letterSpacing: -0.5,
-  },
-  pnlRow: {
-    marginTop: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  pnlChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "rgba(0,208,132,0.1)",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  pnlChipMuted: {
-    backgroundColor: colors.elevated,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  mutedChip: { fontSize: 12, color: colors.muted },
-  today: { fontSize: 12, color: colors.muted, marginLeft: 2 },
-  chartWrap: { marginTop: 12, width: "100%", alignSelf: "stretch" },
-  actions: { flexDirection: "row", alignItems: "stretch", gap: 10 },
-  actionCard: {
+  subTab: {
     flex: 1,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-    paddingVertical: 16,
-    paddingHorizontal: 8,
+    paddingVertical: 10,
+    alignItems: "center",
+    borderRadius: 20,
+  },
+  subTabActive: {
+    backgroundColor: YELLOW,
+  },
+  subTabText: {
+    color: "#94A3B8",
+    fontWeight: "700",
+    fontSize: 13,
+  },
+  subTabTextActive: {
+    color: "#000",
+    fontWeight: "800",
+    fontSize: 13,
+  },
+  infoText: {
+    color: "#64748B",
+    fontSize: 12,
+    marginTop: 14,
+  },
+  filterPills: {
+    flexDirection: "row",
+    marginTop: 16,
+  },
+  pill: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginRight: 10,
+    backgroundColor: "transparent",
+  },
+  pillActive: {
+    backgroundColor: "#F1F5F9",
+  },
+  pillText: {
+    color: "#64748B",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  pillTextActive: {
+    color: "#0F172A",
+  },
+  updateText: {
+    color: "#64748B",
+    fontSize: 12,
+    marginTop: 14,
+  },
+  myRankingCard: {
+    backgroundColor: CARD_BG,
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 16,
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
   },
-  actionIcon: {
-    height: 44,
-    width: 44,
-    borderRadius: 14,
-    backgroundColor: colors.primarySoft,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 10,
-  },
-  actionLabel: {
+  myRankLeft: {},
+  myRankBadge: {
+    color: "#64748B",
     fontSize: 12,
     fontWeight: "600",
-    color: colors.text,
-    textAlign: "center",
   },
-  list: { gap: 10 },
-  emptyPos: {
+  myRankNum: {
+    color: "#F8FAFC",
+    fontSize: 20,
+    fontWeight: "900",
+  },
+  coinIcon: {
+    width: 28,
+    height: 28,
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-    padding: 16,
-  },
-  emptyPosText: { textAlign: "center", color: colors.muted, fontSize: 13 },
-  posCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-  },
-  sideIcon: {
-    height: 40,
-    width: 40,
-    borderRadius: 12,
+    backgroundColor: YELLOW,
+    marginLeft: 12,
     alignItems: "center",
     justifyContent: "center",
   },
-  posMid: { flex: 1, marginLeft: 12, marginRight: 10, minWidth: 0 },
-  pair: { fontSize: 15, fontWeight: "700", color: colors.text },
-  source: { marginTop: 2, fontSize: 12, color: colors.muted },
-  posRight: { alignItems: "flex-end", minWidth: 72 },
+  myEmail: {
+    color: "#F8FAFC",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  tvipBadge: {
+    backgroundColor: "#F59E0B",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  tvipBadgeRank: {
+    backgroundColor: "#F59E0B",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  tvipText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "800",
+  },
+  myRankRight: {
+    alignItems: "flex-end",
+  },
+  earningLabel: {
+    color: "#64748B",
+    fontSize: 12,
+  },
+  earningValue: {
+    color: "#F8FAFC",
+    fontSize: 16,
+    fontWeight: "800",
+    marginTop: 4,
+  },
+  usdt: {
+    fontSize: 11,
+    color: "#94A3B8",
+    fontWeight: "600",
+  },
+  listHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 24,
+    marginBottom: 8,
+  },
+  listColText: {
+    color: "#64748B",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  rankItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 14,
+  },
+  rankItemLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  medalBg: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  medalText: {
+    color: "#1E293B",
+    fontWeight: "900",
+    fontSize: 12,
+    marginTop: -2,
+  },
+  avatarImg: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginLeft: 12,
+  },
+  rName: {
+    color: "#F8FAFC",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  rEarning: {
+    color: "#F8FAFC",
+    fontSize: 15,
+    fontWeight: "800",
+  },
 });

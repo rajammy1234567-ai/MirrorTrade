@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import {
   Alert,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -19,6 +20,45 @@ import { colors } from "../theme/colors";
 type Props = NativeStackScreenProps<RootStackParamList, "Auth">;
 type Tab = "login" | "signup";
 
+function PasswordStrength({ password }: { password: string }) {
+  if (!password) return null;
+  const score =
+    (password.length >= 6 ? 1 : 0) +
+    (password.length >= 10 ? 1 : 0) +
+    (/[A-Z]/.test(password) ? 1 : 0) +
+    (/[0-9]/.test(password) || /[^A-Za-z0-9]/.test(password) ? 1 : 0);
+  const level = Math.min(score, 3);
+  const labels = ["Weak", "Fair", "Strong"] as const;
+  const barColors = ["#FF3B5C", "#F5A524", "#00D084"] as const;
+
+  return (
+    <View style={styles.strengthRow}>
+      <View style={styles.strengthBars}>
+        {[0, 1, 2].map((i) => (
+          <View
+            key={i}
+            style={[
+              styles.strengthBar,
+              {
+                backgroundColor:
+                  i < level ? barColors[level - 1] : "rgba(55, 63, 82, 0.6)",
+              },
+            ]}
+          />
+        ))}
+      </View>
+      <Text
+        style={[
+          styles.strengthLabel,
+          { color: level ? barColors[level - 1] : colors.muted },
+        ]}
+      >
+        {level ? labels[level - 1] : ""}
+      </Text>
+    </View>
+  );
+}
+
 export default function AuthScreen({ navigation }: Props) {
   const { login, register } = useAuth();
   const [tab, setTab] = useState<Tab>("login");
@@ -36,6 +76,8 @@ export default function AuthScreen({ navigation }: Props) {
     if (next === "signup") {
       setEmail("");
       setPassword("");
+      setName("");
+      setPhone("");
     } else {
       setEmail("user@mirrortrade.com");
       setPassword("User@123");
@@ -77,137 +119,189 @@ export default function AuthScreen({ navigation }: Props) {
       edges={["top", "bottom", "left", "right"]}
       contentStyle={styles.screenPad}
     >
-      <View style={styles.center}>
-        {/* Ambient glow behind logo */}
-        <View style={styles.glow} pointerEvents="none" />
+      {/* Decorative ambient blobs */}
+      <View style={styles.blobTop} pointerEvents="none" />
+      <View style={styles.blobBottom} pointerEvents="none" />
 
+      <View style={styles.center}>
+        {/* Brand header */}
         <View style={styles.logoBlock}>
+          <View style={styles.logoGlow} pointerEvents="none" />
           <LinearGradient
-            colors={["#5B6CFF", "#7C5CFF", "#9B5CFF"]}
+            colors={["#5B6CFF", "#7C5CFF", "#A855F7"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.logoBox}
           >
-            <Ionicons name="trending-up" size={30} color="#FFFFFF" />
+            <Ionicons name="trending-up" size={28} color="#FFFFFF" />
           </LinearGradient>
           <Text style={styles.brand}>MirrorTrade</Text>
-          <Text style={styles.tagline}>Professional Copy Trading Platform</Text>
+          <Text style={styles.tagline}>
+            {tab === "login"
+              ? "Welcome back — pick up where you left off"
+              : "Start copying pro traders in minutes"}
+          </Text>
         </View>
 
-        {/* Segmented control */}
-        <View style={styles.tabShell}>
-          {(["login", "signup"] as Tab[]).map((key) => {
-            const active = tab === key;
-            return (
-              <Pressable
-                key={key}
-                onPress={() => switchTab(key)}
-                style={[styles.tabBtn, active && styles.tabBtnActive]}
-              >
-                <Text style={[styles.tabText, active && styles.tabTextActive]}>
-                  {key === "login" ? "Log In" : "Sign Up"}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        {/* Glass card */}
+        <View style={styles.card}>
+          {/* Pill tabs */}
+          <View style={styles.tabShell}>
+            {(["login", "signup"] as Tab[]).map((key) => {
+              const active = tab === key;
+              return (
+                <Pressable
+                  key={key}
+                  onPress={() => switchTab(key)}
+                  style={styles.tabBtn}
+                >
+                  {active ? (
+                    <LinearGradient
+                      colors={["#4F6EF7", "#7C5CFF"]}
+                      start={{ x: 0, y: 0.5 }}
+                      end={{ x: 1, y: 0.5 }}
+                      style={styles.tabBtnActive}
+                    >
+                      <Text style={styles.tabTextActive}>
+                        {key === "login" ? "Log In" : "Sign Up"}
+                      </Text>
+                    </LinearGradient>
+                  ) : (
+                    <View style={styles.tabBtnIdle}>
+                      <Text style={styles.tabText}>
+                        {key === "login" ? "Log In" : "Sign Up"}
+                      </Text>
+                    </View>
+                  )}
+                </Pressable>
+              );
+            })}
+          </View>
 
-        <View style={styles.form}>
-          {tab === "signup" ? (
-            <>
-              <AuthInput
-                icon="person-outline"
-                placeholder="Full name"
-                value={name}
-                onChangeText={setName}
-                autoCapitalize="words"
-              />
-              <AuthInput
-                icon="call-outline"
-                placeholder="Phone (optional)"
-                value={phone}
-                onChangeText={setPhone}
-                keyboardType="phone-pad"
-              />
-            </>
-          ) : null}
+          <View style={styles.form}>
+            {tab === "signup" ? (
+              <>
+                <AuthInput
+                  icon="person-outline"
+                  label="Full name"
+                  placeholder="Alex Morgan"
+                  value={name}
+                  onChangeText={setName}
+                  autoCapitalize="words"
+                  autoComplete="name"
+                />
+                <AuthInput
+                  icon="call-outline"
+                  label="Phone"
+                  placeholder="+1 555 000 0000 (optional)"
+                  value={phone}
+                  onChangeText={setPhone}
+                  keyboardType="phone-pad"
+                  autoComplete="tel"
+                />
+              </>
+            ) : null}
 
-          <AuthInput
-            icon="mail-outline"
-            placeholder="Email address"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-          <AuthInput
-            icon="lock-closed-outline"
-            placeholder="Password"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            showPasswordToggle
-            passwordVisible={passwordVisible}
-            onTogglePassword={() => setPasswordVisible((v) => !v)}
-          />
-
-          {tab === "login" ? (
-            <Pressable
-              style={styles.forgot}
-              onPress={() =>
-                Alert.alert(
-                  "Forgot password",
-                  "Password reset link will be sent to your email (demo)."
-                )
-              }
-            >
-              <Text style={styles.forgotText}>Forgot Password?</Text>
-            </Pressable>
-          ) : (
-            <Text style={styles.terms}>
-              By signing up you agree to our Terms & Privacy Policy
-            </Text>
-          )}
-
-          {error ? (
-            <View style={styles.errorBox}>
-              <Ionicons name="alert-circle" size={16} color={colors.loss} />
-              <Text style={styles.error}>{error}</Text>
-            </View>
-          ) : null}
-
-          <View style={styles.cta}>
-            <GradientButton
-              label={tab === "login" ? "Log In" : "Create Account"}
-              onPress={handleSubmit}
-              loading={submitting}
+            <AuthInput
+              icon="mail-outline"
+              label="Email"
+              placeholder="you@email.com"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoComplete="email"
             />
+            <AuthInput
+              icon="lock-closed-outline"
+              label="Password"
+              placeholder={
+                tab === "signup" ? "Min. 6 characters" : "Enter your password"
+              }
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              showPasswordToggle
+              passwordVisible={passwordVisible}
+              onTogglePassword={() => setPasswordVisible((v) => !v)}
+              autoComplete={tab === "login" ? "password" : "new-password"}
+            />
+
+            {tab === "signup" ? <PasswordStrength password={password} /> : null}
+
+            {tab === "login" ? (
+              <Pressable
+                style={styles.forgot}
+                onPress={() =>
+                  Alert.alert(
+                    "Forgot password",
+                    "Password reset link will be sent to your email (demo)."
+                  )
+                }
+              >
+                <Text style={styles.forgotText}>Forgot password?</Text>
+              </Pressable>
+            ) : (
+              <Text style={styles.terms}>
+                By creating an account you agree to our{" "}
+                <Text style={styles.termsLink}>Terms</Text> &{" "}
+                <Text style={styles.termsLink}>Privacy Policy</Text>
+              </Text>
+            )}
+
+            {error ? (
+              <View style={styles.errorBox}>
+                <Ionicons name="alert-circle" size={16} color={colors.loss} />
+                <Text style={styles.error}>{error}</Text>
+              </View>
+            ) : null}
+
+            <View style={styles.cta}>
+              <GradientButton
+                label={tab === "login" ? "Log In" : "Create Account"}
+                onPress={handleSubmit}
+                loading={submitting}
+              />
+            </View>
           </View>
         </View>
 
+        {/* Divider */}
         <View style={styles.orRow}>
           <View style={styles.orLine} />
           <Text style={styles.orText}>or continue with</Text>
           <View style={styles.orLine} />
         </View>
 
+        {/* Social */}
         <View style={styles.socialRow}>
           <Pressable
-            style={styles.socialBtn}
+            style={({ pressed }) => [
+              styles.socialBtn,
+              pressed && styles.socialBtnPressed,
+            ]}
             onPress={() => Alert.alert("Google", "Social login coming soon")}
           >
-            <Ionicons name="logo-google" size={18} color="#FFFFFF" />
+            <View style={[styles.socialIcon, styles.googleIcon]}>
+              <Ionicons name="logo-google" size={16} color="#FFFFFF" />
+            </View>
             <Text style={styles.socialText}>Google</Text>
           </Pressable>
           <Pressable
-            style={styles.socialBtn}
+            style={({ pressed }) => [
+              styles.socialBtn,
+              pressed && styles.socialBtnPressed,
+            ]}
             onPress={() => Alert.alert("Apple", "Social login coming soon")}
           >
-            <Ionicons name="logo-apple" size={19} color="#FFFFFF" />
+            <View style={[styles.socialIcon, styles.appleIcon]}>
+              <Ionicons name="logo-apple" size={17} color="#FFFFFF" />
+            </View>
             <Text style={styles.socialText}>Apple</Text>
           </Pressable>
         </View>
 
+        {/* Switch account type */}
         {tab === "login" ? (
           <Text style={styles.switchHint}>
             New here?{" "}
@@ -224,9 +318,13 @@ export default function AuthScreen({ navigation }: Props) {
           </Text>
         )}
 
-        <Text style={styles.demo}>
-          Demo · user@mirrortrade.com / User@123
-        </Text>
+        {/* Demo hint */}
+        <View style={styles.demoChip}>
+          <Ionicons name="flash-outline" size={12} color="#7C8CFF" />
+          <Text style={styles.demo}>
+            Demo · user@mirrortrade.com / User@123
+          </Text>
+        </View>
       </View>
     </Screen>
   );
@@ -234,73 +332,114 @@ export default function AuthScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   screenPad: {
-    paddingHorizontal: 22,
+    paddingHorizontal: 20,
+    flexGrow: 1,
+  },
+  blobTop: {
+    position: "absolute",
+    top: -80,
+    right: -60,
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    backgroundColor: "rgba(91, 108, 255, 0.12)",
+  },
+  blobBottom: {
+    position: "absolute",
+    bottom: 40,
+    left: -80,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: "rgba(168, 85, 247, 0.08)",
   },
   center: {
     flexGrow: 1,
     justifyContent: "center",
-    paddingVertical: 20,
-  },
-  glow: {
-    position: "absolute",
-    top: "8%",
-    alignSelf: "center",
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: "rgba(91, 108, 255, 0.16)",
+    paddingVertical: 24,
   },
   logoBlock: {
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 28,
+  },
+  logoGlow: {
+    position: "absolute",
+    top: -10,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "rgba(91, 108, 255, 0.22)",
   },
   logoBox: {
-    width: 68,
-    height: 68,
+    width: 64,
+    height: 64,
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#5B6CFF",
-    shadowOpacity: 0.55,
-    shadowRadius: 20,
+    shadowOpacity: 0.6,
+    shadowRadius: 22,
     shadowOffset: { width: 0, height: 10 },
-    elevation: 12,
+    elevation: 14,
   },
   brand: {
-    marginTop: 18,
-    fontSize: 30,
+    marginTop: 16,
+    fontSize: 28,
     fontWeight: "800",
     color: colors.text,
-    letterSpacing: -0.6,
+    letterSpacing: -0.7,
   },
   tagline: {
     marginTop: 6,
-    fontSize: 13,
+    fontSize: 13.5,
     color: colors.muted,
     fontWeight: "500",
+    textAlign: "center",
+    lineHeight: 19,
+    maxWidth: 280,
+  },
+  card: {
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "rgba(55, 63, 82, 0.55)",
+    backgroundColor:
+      Platform.OS === "web"
+        ? "rgba(18, 22, 34, 0.72)"
+        : "rgba(18, 22, 34, 0.92)",
+    padding: 18,
+    shadowColor: "#000",
+    shadowOpacity: 0.35,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 8,
   },
   tabShell: {
-    marginTop: 28,
     flexDirection: "row",
-    borderRadius: 16,
-    backgroundColor: "#0F131C",
+    borderRadius: 14,
+    backgroundColor: "rgba(10, 13, 20, 0.9)",
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: "rgba(42, 49, 66, 0.8)",
     padding: 4,
+    gap: 4,
   },
   tabBtn: {
     flex: 1,
-    alignItems: "center",
-    borderRadius: 12,
-    paddingVertical: 12,
   },
   tabBtnActive: {
-    backgroundColor: "#1A2130",
-    shadowColor: "#000",
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 11,
+    paddingVertical: 11,
+    shadowColor: "#5B6CFF",
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  tabBtnIdle: {
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 11,
+    paddingVertical: 11,
   },
   tabText: {
     fontSize: 14,
@@ -308,15 +447,39 @@ const styles = StyleSheet.create({
     color: colors.muted,
   },
   tabTextActive: {
-    color: colors.text,
+    fontSize: 14,
     fontWeight: "700",
+    color: "#FFFFFF",
   },
   form: {
-    marginTop: 20,
+    marginTop: 18,
+  },
+  strengthRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: -4,
+    marginBottom: 10,
+    gap: 10,
+  },
+  strengthBars: {
+    flex: 1,
+    flexDirection: "row",
+    gap: 5,
+  },
+  strengthBar: {
+    flex: 1,
+    height: 3,
+    borderRadius: 2,
+  },
+  strengthLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    minWidth: 42,
+    textAlign: "right",
   },
   forgot: {
-    marginTop: 2,
-    marginBottom: 14,
+    marginTop: -2,
+    marginBottom: 16,
     alignSelf: "flex-end",
   },
   forgotText: {
@@ -325,23 +488,27 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   terms: {
-    marginBottom: 14,
+    marginBottom: 16,
     fontSize: 12,
     color: colors.muted,
-    lineHeight: 17,
+    lineHeight: 18,
     textAlign: "center",
+  },
+  termsLink: {
+    color: "#9AA8FF",
+    fontWeight: "600",
   },
   errorBox: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    marginBottom: 12,
+    marginBottom: 14,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "rgba(255, 59, 92, 0.3)",
+    borderColor: "rgba(255, 59, 92, 0.28)",
     backgroundColor: "rgba(255, 59, 92, 0.08)",
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 11,
   },
   error: {
     flex: 1,
@@ -350,23 +517,23 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   cta: {
-    marginTop: 4,
+    marginTop: 2,
   },
   orRow: {
-    marginTop: 26,
-    marginBottom: 16,
+    marginTop: 24,
+    marginBottom: 14,
     flexDirection: "row",
     alignItems: "center",
   },
   orLine: {
     height: StyleSheet.hairlineWidth,
     flex: 1,
-    backgroundColor: colors.border,
+    backgroundColor: "rgba(55, 63, 82, 0.9)",
   },
   orText: {
-    marginHorizontal: 12,
+    marginHorizontal: 14,
     fontSize: 12,
-    color: colors.muted,
+    color: "#6B7388",
     fontWeight: "500",
   },
   socialRow: {
@@ -378,12 +545,29 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: "#121722",
-    paddingVertical: 14,
-    gap: 8,
+    borderColor: "rgba(55, 63, 82, 0.75)",
+    backgroundColor: "rgba(18, 22, 34, 0.85)",
+    paddingVertical: 13,
+    gap: 10,
+  },
+  socialBtnPressed: {
+    opacity: 0.75,
+    transform: [{ scale: 0.98 }],
+  },
+  socialIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  googleIcon: {
+    backgroundColor: "rgba(234, 67, 53, 0.18)",
+  },
+  appleIcon: {
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   socialText: {
     fontSize: 14,
@@ -393,17 +577,29 @@ const styles = StyleSheet.create({
   switchHint: {
     marginTop: 22,
     textAlign: "center",
-    fontSize: 13,
+    fontSize: 13.5,
     color: colors.muted,
   },
   switchLink: {
     color: colors.primary,
     fontWeight: "700",
   },
+  demoChip: {
+    marginTop: 16,
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(91, 108, 255, 0.2)",
+    backgroundColor: "rgba(91, 108, 255, 0.08)",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
   demo: {
-    marginTop: 14,
-    textAlign: "center",
     fontSize: 11,
-    color: "#5C6478",
+    color: "#8B95B8",
+    fontWeight: "500",
   },
 });

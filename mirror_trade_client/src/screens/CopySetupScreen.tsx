@@ -20,6 +20,7 @@ export default function CopySetupScreen({ route, navigation }: Props) {
   const [maxDd, setMaxDd] = useState(20);
   const [multiplier, setMultiplier] = useState(1);
   const [copyOpen, setCopyOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   return (
     <Screen
@@ -27,19 +28,30 @@ export default function CopySetupScreen({ route, navigation }: Props) {
         <GradientButton
           variant="green"
           label={`Start Copying · $${amount.toLocaleString()} USDT`}
-          onPress={() => {
-            startCopy({
-              traderId: trader.id,
-              amount,
-              maxDd,
-              multiplier,
-              copyOpen,
-            });
-            Alert.alert(
-              "Copy started",
-              `You are now copying ${trader.name} with $${amount}.`,
-              [{ text: "OK", onPress: () => navigation.navigate("MainTabs") }]
-            );
+          loading={loading}
+          onPress={async () => {
+            try {
+              setLoading(true);
+              const { startCopyRequest } = require("../config/api");
+              await startCopyRequest(trader.id, amount, maxDd, multiplier, copyOpen);
+
+              startCopy({
+                traderId: trader.id,
+                amount,
+                maxDd,
+                multiplier,
+                copyOpen,
+              });
+              Alert.alert(
+                "Copy started",
+                `You are now copying ${trader.name} with $${amount}. (Dummy API Success)`,
+                [{ text: "OK", onPress: () => navigation.navigate("MainTabs") }]
+              );
+            } catch (err: any) {
+              Alert.alert("Error", err.message || "Failed to connect to API");
+            } finally {
+              setLoading(false);
+            }
           }}
         />
       }

@@ -13,9 +13,9 @@ function resolveApiUrl() {
     return process.env.EXPO_PUBLIC_API_URL;
   }
   if (Platform.OS === "android") {
-    return "http://10.0.2.2:5000/api";
+    return "http://10.0.2.2:7000/api";
   }
-  return "http://localhost:5000/api";
+  return "http://localhost:7000/api";
 }
 
 export const API_URL = resolveApiUrl();
@@ -83,5 +83,26 @@ export async function meRequest() {
 
 export async function healthRequest() {
   const { data } = await api.get<{ success: boolean; message: string }>("/health");
+  return data;
+}
+
+export async function startCopyRequest(
+  traderId: string,
+  amount: number,
+  maxDd: number,
+  multiplier: number,
+  copyOpen: boolean
+) {
+  const { data } = await api.post<{
+    success: boolean;
+    message: string;
+    data: any;
+  }>("/trade/copy", {
+    traderId,
+    amount,
+    maxDd,
+    multiplier,
+    copyOpen,
+  });
   return data;
 }
