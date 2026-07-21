@@ -15,6 +15,7 @@ export type RootStackParamList = {
   TradingPrefs: undefined;
   Help: undefined;
   Referral: undefined;
+  TeamRank: undefined;
 };
 
 export type MainTabParamList = {

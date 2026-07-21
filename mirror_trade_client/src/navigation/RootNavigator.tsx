@@ -22,6 +22,7 @@ import LanguageScreen from "../screens/LanguageScreen";
 import TradingPrefsScreen from "../screens/TradingPrefsScreen";
 import HelpScreen from "../screens/HelpScreen";
 import ReferralScreen from "../screens/ReferralScreen";
+import TeamRankScreen from "../screens/TeamRankScreen";
 
 const NativeStack = createNativeStackNavigator<RootStackParamList>();
 const WebStack = createStackNavigator<RootStackParamList>();
@@ -59,6 +60,7 @@ const screens: {
   { name: "TradingPrefs", component: TradingPrefsScreen },
   { name: "Help", component: HelpScreen },
   { name: "Referral", component: ReferralScreen },
+  { name: "TeamRank", component: TeamRankScreen },
 ];
 
 function NativeAppStack() {
