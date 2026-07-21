@@ -12,10 +12,7 @@ function resolveApiUrl() {
   if (process.env.EXPO_PUBLIC_API_URL) {
     return process.env.EXPO_PUBLIC_API_URL;
   }
-  if (Platform.OS === "android") {
-    return "http://10.0.2.2:7000/api";
-  }
-  return "http://localhost:7000/api";
+  return "https://mirrortrade-api.onrender.com/api";
 }
 
 export const API_URL = resolveApiUrl();

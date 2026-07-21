@@ -31,6 +31,11 @@
       "themeColor": "#0B0E14",
       "backgroundColor": "#0B0E14",
       "display": "standalone"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "df7c800a-98c3-47fc-998d-936a8526b103"
+      }
     }
   }
 }

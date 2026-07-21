@@ -123,6 +123,17 @@ export default function AuthScreen({ navigation }: Props) {
       <View style={styles.blobTop} pointerEvents="none" />
       <View style={styles.blobBottom} pointerEvents="none" />
 
+      {/* Skip Button */}
+      <View style={styles.headerRow}>
+        <Pressable
+          style={styles.skipBtn}
+          onPress={() => navigation.replace("MainTabs")}
+        >
+          <Text style={styles.skipText}>Skip</Text>
+          <Ionicons name="arrow-forward" size={16} color={colors.primary} />
+        </Pressable>
+      </View>
+
       <View style={styles.center}>
         {/* Brand header */}
         <View style={styles.logoBlock}>
@@ -334,6 +345,28 @@ const styles = StyleSheet.create({
   screenPad: {
     paddingHorizontal: 20,
     flexGrow: 1,
+  },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    paddingTop: 10,
+    zIndex: 10,
+  },
+  skipBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "rgba(91, 108, 255, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(91, 108, 255, 0.2)",
+  },
+  skipText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.primary,
   },
   blobTop: {
     position: "absolute",
