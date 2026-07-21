@@ -30,6 +30,31 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    referredBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    referralCode: {
+      type: String,
+      unique: true,
+    },
+    totalDeposit: {
+      type: Number,
+      default: 0,
+    },
+    tVipRank: {
+      type: String,
+      default: "NONE",
+    },
+    cVipRank: {
+      type: String,
+      default: "NONE",
+    },
+    walletBalance: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true }
 );
@@ -47,5 +72,8 @@ userSchema.pre("save", async function hashPassword(next) {
 userSchema.methods.matchPassword = async function matchPassword(enteredPassword) {
   return bcrypt.compare(enteredPassword, this.password);
 };
+
+// Index to make downline lookups fast
+userSchema.index({ referredBy: 1 });
 
 module.exports = mongoose.model("User", userSchema);

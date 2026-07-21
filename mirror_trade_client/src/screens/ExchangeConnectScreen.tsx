@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Pressable, StyleSheet, Text, View, ScrollView } from "react-native";
+import { Pressable, StyleSheet, Text, View, ScrollView, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import Screen from "../components/Screen";
@@ -49,11 +49,15 @@ export default function ExchangeConnectScreen({ navigation }: Props) {
         
         <View style={styles.cardContent}>
           <View style={styles.exInfoLeft}>
-            <View style={[styles.exIcon, { backgroundColor: `${ex.color}22` }]}>
-              <Text style={[styles.exShort, { color: ex.color }]}>
-                {ex.short.slice(0, 3)}
-              </Text>
-            </View>
+            {ex.logo ? (
+              <Image source={{ uri: ex.logo }} style={styles.exIconImage} resizeMode="contain" />
+            ) : (
+              <View style={[styles.exIcon, { backgroundColor: `${ex.color}22` }]}>
+                <Text style={[styles.exShort, { color: ex.color }]}>
+                  {ex.short.slice(0, 3)}
+                </Text>
+              </View>
+            )}
             <View>
               <View style={styles.exNameRow}>
                 <Text style={styles.exName}>{ex.name}</Text>
@@ -331,6 +335,11 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
+  },
+  exIconImage: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
   },
   exShort: {
     fontSize: 10,
