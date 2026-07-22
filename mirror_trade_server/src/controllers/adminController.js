@@ -1,4 +1,9 @@
 const User = require("../models/User");
+const {
+  creditDeposit,
+  setExchangeCapital,
+} = require("../services/capitalService");
+const generateReferralCode = require("../utils/referralCode");
 
 const formatUser = (user) => ({
   id: user._id,
@@ -6,6 +11,14 @@ const formatUser = (user) => ({
   email: user.email,
   role: user.role,
   isActive: user.isActive,
+  referralCode: user.referralCode || null,
+  totalDeposit: user.totalDeposit || 0,
+  capitalSource: user.capitalSource || "none",
+  capitalSyncedAt: user.capitalSyncedAt || null,
+  primaryExchange: user.primaryExchange || null,
+  tVipRank: user.tVipRank || "NONE",
+  cVipRank: user.cVipRank || "NONE",
+  walletBalance: user.walletBalance || 0,
   createdAt: user.createdAt,
 });
 
@@ -13,10 +26,14 @@ const formatUser = (user) => ({
 // @route   GET /api/admin/stats
 // @access  Private/Admin
 const getStats = async (req, res) => {
-  const [totalUsers, activeUsers, admins] = await Promise.all([
+  const [totalUsers, activeUsers, admins, depositAgg] = await Promise.all([
     User.countDocuments({ role: "user" }),
     User.countDocuments({ role: "user", isActive: true }),
     User.countDocuments({ role: "admin" }),
+    User.aggregate([
+      { $match: { role: "user" } },
+      { $group: { _id: null, total: { $sum: "$totalDeposit" } } },
+    ]),
   ]);
 
   res.json({
@@ -26,6 +43,7 @@ const getStats = async (req, res) => {
       activeUsers,
       inactiveUsers: totalUsers - activeUsers,
       admins,
+      totalDeposits: depositAgg[0]?.total || 0,
     },
   });
 };
@@ -54,10 +72,13 @@ const updateUserStatus = async (req, res) => {
   }
 
   if (user.role === "admin") {
-    return res.status(400).json({ success: false, message: "Cannot modify admin status this way" });
+    return res
+      .status(400)
+      .json({ success: false, message: "Cannot modify admin status this way" });
   }
 
-  user.isActive = typeof req.body.isActive === "boolean" ? req.body.isActive : !user.isActive;
+  user.isActive =
+    typeof req.body.isActive === "boolean" ? req.body.isActive : !user.isActive;
   await user.save();
 
   res.json({
@@ -66,5 +87,56 @@ const updateUserStatus = async (req, res) => {
   });
 };
 
-module.exports = { getStats, getUsers, updateUserStatus };
+// @desc    Admin sets / adjusts exchange capital used for VIP levels (support only)
+// @route   POST /api/admin/users/:id/deposit
+// body: { amount, mode?: "set" | "add" }  default "set"
+// @access  Private/Admin
+const adminDeposit = async (req, res) => {
+  const amount = Number(req.body.amount);
+  const mode = req.body.mode === "add" ? "add" : "set";
 
+  if (amount < 0 || Number.isNaN(amount)) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Valid capital amount is required" });
+  }
+
+  const user = await User.findById(req.params.id);
+  if (!user) {
+    return res.status(404).json({ success: false, message: "User not found" });
+  }
+
+  if (!user.referralCode) {
+    user.referralCode = generateReferralCode();
+    await user.save();
+  }
+
+  try {
+    const result =
+      mode === "add"
+        ? await creditDeposit({
+            userId: user._id,
+            amount,
+            note: `Admin capital credit +${amount}`,
+          })
+        : await setExchangeCapital({
+            userId: user._id,
+            amount,
+            source: "admin",
+            note: `Admin set capital to ${amount}`,
+          });
+
+    const fresh = await User.findById(user._id);
+
+    res.status(201).json({
+      success: true,
+      message: "Capital updated and VIP ranks recalculated",
+      data: formatUser(fresh),
+      ranks: { tVip: result.tVip, cVip: result.cVip },
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+module.exports = { getStats, getUsers, updateUserStatus, adminDeposit };

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type AuthUser, type DashboardStats } from "../lib/api";
+import { formatMoney } from "../lib/currency";
 import { useAuth } from "../context/AuthContext";
 
 export default function DashboardPage() {
@@ -46,6 +47,34 @@ export default function DashboardPage() {
     }
   };
 
+  const creditDeposit = async (id: string, name: string) => {
+    const raw = window.prompt(
+      `Set exchange capital (for VIP levels) for ${name}:`,
+      "100"
+    );
+    if (raw == null) return;
+    const amount = Number(raw);
+    if (!amount || amount <= 0) {
+      setError("Enter a valid deposit amount");
+      return;
+    }
+    try {
+      const res = await api.post(`/admin/users/${id}/deposit`, { amount });
+      const ranks = res.data?.ranks;
+      if (ranks) {
+        window.alert(
+          `Deposit ${formatMoney(amount)} credited.\nT-VIP: ${ranks.tVip}\nC-VIP: ${ranks.cVip}`
+        );
+      }
+      await load();
+    } catch (err: unknown) {
+      const message =
+        // @ts-expect-error axios error shape
+        err?.response?.data?.message || "Failed to credit deposit";
+      setError(message);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-100">
       <header className="border-b border-slate-200 bg-white">
@@ -81,12 +110,16 @@ export default function DashboardPage() {
           <p className="text-slate-500">Loading...</p>
         ) : (
           <>
-            <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
               {[
                 { label: "Total Users", value: stats?.totalUsers ?? 0 },
                 { label: "Active Users", value: stats?.activeUsers ?? 0 },
                 { label: "Inactive Users", value: stats?.inactiveUsers ?? 0 },
                 { label: "Admins", value: stats?.admins ?? 0 },
+                {
+                  label: "Total Deposits (INR)",
+                  value: formatMoney(stats?.totalDeposits ?? 0),
+                },
               ].map((card) => (
                 <div
                   key={card.label}
@@ -104,7 +137,7 @@ export default function DashboardPage() {
               <div className="border-b border-slate-200 px-5 py-4">
                 <h2 className="font-semibold text-slate-900">Users</h2>
                 <p className="text-sm text-slate-500">
-                  Manage mobile app users from the shared API
+                  T-VIP / C-VIP from exchange capital · admin can set capital if API sync fails
                 </p>
               </div>
               <div className="overflow-x-auto">
@@ -113,7 +146,11 @@ export default function DashboardPage() {
                     <tr>
                       <th className="px-5 py-3 font-medium">Name</th>
                       <th className="px-5 py-3 font-medium">Email</th>
-                      <th className="px-5 py-3 font-medium">Role</th>
+                      <th className="px-5 py-3 font-medium">Deposit</th>
+                      <th className="px-5 py-3 font-medium">Wallet</th>
+                      <th className="px-5 py-3 font-medium">T-VIP</th>
+                      <th className="px-5 py-3 font-medium">C-VIP</th>
+                      <th className="px-5 py-3 font-medium">Referral</th>
                       <th className="px-5 py-3 font-medium">Status</th>
                       <th className="px-5 py-3 font-medium">Action</th>
                     </tr>
@@ -125,8 +162,24 @@ export default function DashboardPage() {
                           {u.name}
                         </td>
                         <td className="px-5 py-3 text-slate-600">{u.email}</td>
-                        <td className="px-5 py-3 capitalize text-slate-600">
-                          {u.role}
+                        <td className="px-5 py-3 text-slate-600">
+                          {formatMoney(u.totalDeposit || 0)}
+                        </td>
+                        <td className="px-5 py-3 text-slate-600">
+                          {formatMoney(u.walletBalance || 0, 2)}
+                        </td>
+                        <td className="px-5 py-3">
+                          <span className="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">
+                            {u.tVipRank || "NONE"}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3">
+                          <span className="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                            {u.cVipRank || "NONE"}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3 font-mono text-xs text-slate-500">
+                          {u.referralCode || "—"}
                         </td>
                         <td className="px-5 py-3">
                           <span
@@ -141,19 +194,26 @@ export default function DashboardPage() {
                         </td>
                         <td className="px-5 py-3">
                           {u.role === "user" ? (
-                            <button
-                              onClick={() => toggleStatus(u.id, u.isActive)}
-                              className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                            >
-                              {u.isActive ? "Deactivate" : "Activate"}
-                            </button>
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                onClick={() => creditDeposit(u.id, u.name)}
+                                className="rounded-lg border border-blue-300 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                              >
+                                Set capital
+                              </button>
+                              <button
+                                onClick={() => toggleStatus(u.id, u.isActive)}
+                                className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                              >
+                                {u.isActive ? "Deactivate" : "Activate"}
+                              </button>
+                            </div>
                           ) : (
                             <span className="text-xs text-slate-400">—</span>
                           )}
                         </td>
                       </tr>
                     ))}
-
                   </tbody>
                 </table>
               </div>

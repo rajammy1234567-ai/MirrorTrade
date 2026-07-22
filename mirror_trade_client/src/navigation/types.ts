@@ -15,7 +15,7 @@ export type RootStackParamList = {
   TradingPrefs: undefined;
   Help: undefined;
   Referral: undefined;
-  TeamRank: undefined;
+  TeamRank: { focus?: "T-VIP" | "C-VIP" } | undefined;
 };
 
 export type MainTabParamList = {

@@ -4,13 +4,19 @@ import { Platform } from "react-native";
 
 /**
  * API base URL
- * - Web / iOS simulator: localhost
- * - Android emulator: 10.0.2.2
- * - Physical phone: set EXPO_PUBLIC_API_URL=http://YOUR_LAN_IP:5000/api
+ * - EXPO_PUBLIC_API_URL from .env always wins
+ * - __DEV__: local server PORT=7000
+ * - production: hosted API
  */
 function resolveApiUrl() {
   if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL;
+    return process.env.EXPO_PUBLIC_API_URL.replace(/\/$/, "");
+  }
+  if (typeof __DEV__ !== "undefined" && __DEV__) {
+    if (Platform.OS === "android") {
+      return "http://10.0.2.2:7000/api";
+    }
+    return "http://localhost:7000/api";
   }
   return "https://mirrortrade-api.onrender.com/api";
 }
@@ -18,18 +24,23 @@ function resolveApiUrl() {
 export const API_URL = resolveApiUrl();
 export const TOKEN_KEY = "mt_token";
 
+/** Short timeout so UI never spins forever when server is down */
 export const api = axios.create({
   baseURL: API_URL,
   headers: {
     "Content-Type": "application/json",
   },
-  timeout: 15000,
+  timeout: 8000,
 });
 
 api.interceptors.request.use(async (config) => {
-  const token = await AsyncStorage.getItem(TOKEN_KEY);
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  try {
+    const token = await AsyncStorage.getItem(TOKEN_KEY);
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  } catch {
+    // storage unavailable — continue without token
   }
   return config;
 });
@@ -40,6 +51,14 @@ export type AuthUser = {
   email: string;
   role: "user" | "admin";
   isActive: boolean;
+  referralCode?: string | null;
+  totalDeposit?: number;
+  capitalSource?: "none" | "exchange" | "admin";
+  capitalSyncedAt?: string | null;
+  primaryExchange?: string | null;
+  tVipRank?: string;
+  cVipRank?: string;
+  walletBalance?: number;
   createdAt?: string;
 };
 
@@ -50,9 +69,138 @@ export type AuthResponse = {
   message?: string;
 };
 
+export type TVipPlan = {
+  rank: string;
+  minDeposit: number;
+  profitSharePercent: number;
+};
+
+export type CVipPlan = {
+  rank: string;
+  minDeposit: number;
+  minDirects: number;
+  minTeamBusiness: number;
+};
+
+export type ProgressMetric = {
+  current: number;
+  target: number;
+  met?: boolean;
+  percent: number;
+};
+
+export type PlanStatus = {
+  totalDeposit: number;
+  exchangeCapital?: number;
+  capitalSource?: string;
+  capitalSyncedAt?: string | null;
+  primaryExchange?: string | null;
+  walletBalance: number;
+  tVipRank: string;
+  cVipRank: string;
+  tVipProfitSharePercent: number;
+  referralCode: string;
+  directs: number;
+  teamBusiness: number;
+  nextTVip: TVipPlan | null;
+  nextCVip: CVipPlan | null;
+  tVipProgress?: ProgressMetric;
+  cVipProgress?: {
+    deposit: ProgressMetric;
+    directs: ProgressMetric;
+    teamBusiness: ProgressMetric;
+  } | null;
+  model?: {
+    inAppPayments: boolean;
+    capitalFromExchange: boolean;
+    note: string;
+  };
+  bonuses?: {
+    sameLevelBonus?: Record<string, number>;
+    globalDevRankBonus?: Record<string, number>;
+  };
+  plans: {
+    tVip: TVipPlan[];
+    cVip: CVipPlan[];
+  };
+};
+
+export type PlanTransaction = {
+  id: string;
+  type: string;
+  amount: number;
+  rankAtTime?: string | null;
+  percentApplied?: number | null;
+  note?: string;
+  createdAt: string;
+};
+
+export type ExchangeConnection = {
+  id: string;
+  exchange: string;
+  permissions: {
+    spotTrading?: boolean;
+    futuresTrading?: boolean;
+    withdrawals?: boolean;
+  };
+  status: string;
+  lastVerifiedAt?: string;
+  lastError?: string | null;
+  lastCapital?: number | null;
+  capitalSyncedAt?: string | null;
+  createdAt?: string;
+};
+
+export type CapitalSnapshot = {
+  totalDeposit: number;
+  exchangeCapital?: number;
+  tVipRank: string;
+  cVipRank: string;
+  directs: number;
+  teamBusiness: number;
+  capitalSource?: string;
+  capitalSyncedAt?: string | null;
+  primaryExchange?: string | null;
+};
+
 export function getApiErrorMessage(err: unknown, fallback = "Something went wrong") {
   const ax = err as AxiosError<{ message?: string }>;
+  if (ax?.code === "ECONNABORTED" || ax?.message?.includes("timeout")) {
+    return "Server timeout — is the API running on port 7000?";
+  }
+  if (ax?.code === "ERR_NETWORK" || !ax?.response) {
+    return `Cannot reach API (${API_URL}). Start mirror_trade_server.`;
+  }
   return ax?.response?.data?.message || (err instanceof Error ? err.message : fallback);
+}
+
+export function isUnauthorized(err: unknown) {
+  return (err as AxiosError)?.response?.status === 401;
+}
+
+export function isNetworkError(err: unknown) {
+  const ax = err as AxiosError;
+  return !ax?.response || ax.code === "ERR_NETWORK" || ax.code === "ECONNABORTED";
+}
+
+function isRouteMissing(err: unknown) {
+  return (err as AxiosError)?.response?.status === 404;
+}
+
+/** Race a promise so screens never hang past maxMs */
+export function withTimeout<T>(promise: Promise<T>, maxMs = 6000): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error("Request timed out")), maxMs);
+    promise
+      .then((v) => {
+        clearTimeout(t);
+        resolve(v);
+      })
+      .catch((e) => {
+        clearTimeout(t);
+        reject(e);
+      });
+  });
 }
 
 export async function loginRequest(email: string, password: string) {
@@ -63,12 +211,14 @@ export async function loginRequest(email: string, password: string) {
 export async function registerRequest(
   name: string,
   email: string,
-  password: string
+  password: string,
+  referralCode?: string
 ) {
   const { data } = await api.post<AuthResponse>("/auth/register", {
     name,
     email,
     password,
+    ...(referralCode?.trim() ? { referralCode: referralCode.trim() } : {}),
   });
   return data;
 }
@@ -83,6 +233,115 @@ export async function healthRequest() {
   return data;
 }
 
+export async function getPlansRequest() {
+  const { data } = await api.get<{
+    success: boolean;
+    data: {
+      tVip: TVipPlan[];
+      cVip: CVipPlan[];
+      bonuses: Record<string, unknown>;
+      company: Record<string, number>;
+    };
+  }>("/plans");
+  return data;
+}
+
+export async function getMyPlanStatusRequest() {
+  const { data } = await api.get<{ success: boolean; data: PlanStatus }>("/plans/me");
+  return data;
+}
+
+export async function getMyTransactionsRequest(limit = 30) {
+  const { data } = await api.get<{
+    success: boolean;
+    count: number;
+    data: PlanTransaction[];
+  }>("/plans/transactions", { params: { limit } });
+  return data;
+}
+
+export async function listExchangesRequest() {
+  try {
+    const { data } = await api.get<{
+      success: boolean;
+      data: ExchangeConnection[];
+    }>("/exchanges");
+    return data;
+  } catch (err) {
+    if (isRouteMissing(err) || isNetworkError(err)) {
+      return { success: true, data: [] as ExchangeConnection[] };
+    }
+    throw err;
+  }
+}
+
+export async function connectExchangeRequest(payload: {
+  exchange: string;
+  apiKey: string;
+  apiSecret: string;
+  passphrase?: string;
+}) {
+  try {
+    const { data } = await api.post<{
+      success: boolean;
+      message: string;
+      data: {
+        connection: ExchangeConnection;
+        capital: CapitalSnapshot | null;
+        capitalError: string | null;
+      };
+    }>("/exchanges/connect", payload);
+    return data;
+  } catch (err) {
+    if (isRouteMissing(err)) {
+      throw new Error(
+        "Exchange API not on this server. Use local API (port 7000) or redeploy backend."
+      );
+    }
+    throw err;
+  }
+}
+
+export async function syncExchangeCapitalRequest(exchange?: string) {
+  try {
+    const { data } = await api.post<{
+      success: boolean;
+      message: string;
+      data: {
+        exchanges: Array<{
+          exchange: string;
+          capital: number;
+          ok: boolean;
+          error?: string;
+        }>;
+        capital: CapitalSnapshot;
+      };
+    }>("/exchanges/sync-capital", exchange ? { exchange } : {});
+    return data;
+  } catch (err) {
+    if (isRouteMissing(err)) {
+      throw new Error(
+        "Capital sync not available. Start local server on port 7000."
+      );
+    }
+    throw err;
+  }
+}
+
+export async function disconnectExchangeRequest(exchange: string) {
+  try {
+    const { data } = await api.delete<{ success: boolean; message: string }>(
+      `/exchanges/${exchange}`
+    );
+    return data;
+  } catch (err) {
+    if (isRouteMissing(err)) {
+      throw new Error("Exchange API not available on this server.");
+    }
+    throw err;
+  }
+}
+
 export async function startCopyRequest(
   traderId: string,
   amount: number,
@@ -93,7 +352,7 @@ export async function startCopyRequest(
   const { data } = await api.post<{
     success: boolean;
     message: string;
-    data: any;
+    data: unknown;
   }>("/trade/copy", {
     traderId,
     amount,
@@ -103,3 +362,5 @@ export async function startCopyRequest(
   });
   return data;
 }
+
+void Platform;

@@ -112,7 +112,7 @@ export default function BotsScreen() {
                   </View>
                   <View style={styles.botPnl}>
                     <PnlText value={bot.pnlPct} suffix="%" size="md" />
-                    <PnlText value={bot.pnl} prefix="$" size="sm" bold={false} />
+                    <PnlText value={bot.pnl} prefix="₹" size="sm" bold={false} />
                   </View>
                 </View>
 

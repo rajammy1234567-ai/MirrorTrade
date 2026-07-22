@@ -1,9 +1,8 @@
 import React from "react";
-import { ActivityIndicator, Platform, StyleSheet, View } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 import { NavigationContainer, DarkTheme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createStackNavigator } from "@react-navigation/stack";
-import { useAuth } from "../context/AuthContext";
 import { RootStackParamList } from "./types";
 import { colors } from "../theme/colors";
 import SplashScreen from "../screens/SplashScreen";
@@ -100,16 +99,7 @@ function WebAppStack() {
 }
 
 export default function RootNavigator() {
-  const { loading } = useAuth();
-
-  if (loading) {
-    return (
-      <View style={styles.fillCenter}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
-
+  // Don't block entire app on auth bootstrap — Splash handles routing
   return (
     <View style={styles.fill}>
       <NavigationContainer theme={navTheme}>
@@ -123,11 +113,5 @@ const styles = StyleSheet.create({
   fill: {
     flex: 1,
     backgroundColor: colors.bg,
-  },
-  fillCenter: {
-    flex: 1,
-    backgroundColor: colors.bg,
-    alignItems: "center",
-    justifyContent: "center",
   },
 });

@@ -23,6 +23,11 @@ export type AuthUser = {
   email: string;
   role: "user" | "admin";
   isActive: boolean;
+  referralCode?: string | null;
+  totalDeposit?: number;
+  tVipRank?: string;
+  cVipRank?: string;
+  walletBalance?: number;
   createdAt?: string;
 };
 
@@ -31,4 +36,5 @@ export type DashboardStats = {
   activeUsers: number;
   inactiveUsers: number;
   admins: number;
+  totalDeposits?: number;
 };

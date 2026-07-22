@@ -38,10 +38,28 @@ const userSchema = new mongoose.Schema(
     referralCode: {
       type: String,
       unique: true,
+      sparse: true,
     },
+    /**
+     * Exchange capital used for VIP levels (NOT in-app wallet deposit).
+     * Funds stay on the user's exchange; this is a snapshot for ranks.
+     */
     totalDeposit: {
       type: Number,
       default: 0,
+    },
+    capitalSource: {
+      type: String,
+      enum: ["none", "exchange", "admin"],
+      default: "none",
+    },
+    capitalSyncedAt: {
+      type: Date,
+      default: null,
+    },
+    primaryExchange: {
+      type: String,
+      default: null,
     },
     tVipRank: {
       type: String,
@@ -51,6 +69,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "NONE",
     },
+    /** Platform earnings (bonuses / profit share), not exchange balance */
     walletBalance: {
       type: Number,
       default: 0,

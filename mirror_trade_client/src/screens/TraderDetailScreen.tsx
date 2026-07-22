@@ -168,7 +168,7 @@ export default function TraderDetailScreen({ route, navigation }: Props) {
                 <View style={{ flex: 1, marginLeft: 10 }}>
                   <Text style={styles.tradePair}>{tr.pair}</Text>
                   <Text style={styles.tradeMeta}>
-                    ${tr.entry.toLocaleString()} → ${tr.exit.toLocaleString()}
+                    ₹{tr.entry.toLocaleString("en-IN")} → ₹{tr.exit.toLocaleString("en-IN")}
                   </Text>
                 </View>
                 <View style={{ alignItems: "flex-end" }}>

@@ -8,7 +8,7 @@
  */
 
 // ---------- I - VIP (T-VIP) : personal deposit based ----------
-// minDeposit = minimum deposit ($) required to qualify for this rank
+// minDeposit = minimum deposit (₹ INR) required to qualify for this rank
 // profitSharePercent = % of the "exchange profit pool" the user gets
 const T_VIP_RANKS = [
   { rank: "DEMO",     minDeposit: 50,   profitSharePercent: 0  },
@@ -24,7 +24,7 @@ const T_VIP_RANKS = [
 // ---------- D - C-VIP : team/referral based ----------
 // minDeposit        = user's own deposit required
 // minDirects        = number of DIRECT referrals required
-// minTeamBusiness   = total downline business ($) required
+// minTeamBusiness   = total downline business (₹ INR) required
 const C_VIP_RANKS = [
   { rank: "DEMO-CVIP", minDeposit: 20,   minDirects: 0, minTeamBusiness: 0     },
   { rank: "C-VIP-1",   minDeposit: 100,  minDirects: 0, minTeamBusiness: 0     },

@@ -70,7 +70,7 @@ const defaultSettings: AppSettings = {
   signalAlerts: true,
   emailDigest: false,
   language: "English",
-  region: "Global (USDT)",
+  region: "India (INR)",
   defaultLeverage: 3,
   confirmOrders: true,
   twoFAEnabled: true,
@@ -80,7 +80,7 @@ const seedNotifications: NotificationItem[] = [
   {
     id: "n1",
     title: "BTC Grid Bot filled",
-    body: "Buy order filled at $43,820 · +0.4%",
+    body: "Buy order filled at ₹43,820 · +0.4%",
     time: "4m ago",
     read: false,
     type: "bot",
@@ -194,7 +194,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       if (bot) {
         addNotification({
           title: `${bot.name} stopped`,
-          body: `Final PnL ${bot.pnl >= 0 ? "+" : ""}$${bot.pnl.toFixed(2)}`,
+          body: `Final PnL ${bot.pnl >= 0 ? "+" : ""}₹${bot.pnl.toFixed(2)}`,
           time: "Just now",
           type: "bot",
         });
@@ -216,7 +216,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       setBots((prev) => [bot, ...prev]);
       addNotification({
         title: `${bot.name} launched`,
-        body: `${bot.type} on ${bot.pair} · $${bot.investment.toLocaleString()}`,
+        body: `${bot.type} on ${bot.pair} · ₹${bot.investment.toLocaleString("en-IN")}`,
         time: "Just now",
         type: "bot",
       });
@@ -238,7 +238,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         setHistory((h) => [closed, ...h]);
         addNotification({
           title: `Closed ${pos.pair}`,
-          body: `PnL ${pos.pnl >= 0 ? "+" : ""}$${pos.pnl.toFixed(2)} (${pos.pnlPct}%)`,
+          body: `PnL ${pos.pnl >= 0 ? "+" : ""}₹${pos.pnl.toFixed(2)} (${pos.pnlPct}%)`,
           time: "Just now",
           type: "trade",
         });
@@ -284,7 +284,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       });
       addNotification({
         title: "Copy trading started",
-        body: `Allocating $${copy.amount.toLocaleString()} · ${copy.multiplier}x size`,
+        body: `Allocating ₹${copy.amount.toLocaleString("en-IN")} · ${copy.multiplier}x size`,
         time: "Just now",
         type: "trade",
       });

@@ -24,7 +24,7 @@ export default function CreateBotScreen({ navigation, route }: Props) {
   const launch = () => {
     const inv = Number(amount) || 0;
     if (inv < 50) {
-      Alert.alert("Invalid amount", "Minimum investment is $50 USDT");
+      Alert.alert("Invalid amount", "Minimum investment is ₹50 INR");
       return;
     }
     const bot = createBot({
@@ -33,7 +33,7 @@ export default function CreateBotScreen({ navigation, route }: Props) {
       pair: pair.toUpperCase(),
       investment: inv,
     });
-    Alert.alert("Bot launched", `${bot.name} is live with $${inv}.`, [
+    Alert.alert("Bot launched", `${bot.name} is live with ₹${inv}.`, [
       {
         text: "View bot",
         onPress: () =>
@@ -72,7 +72,7 @@ export default function CreateBotScreen({ navigation, route }: Props) {
       <View style={styles.card}>
         <Field label="Pair" value={pair} onChange={setPair} />
         <Field
-          label="Investment (USDT)"
+          label="Investment (INR)"
           value={amount}
           onChange={setAmount}
           keyboard
@@ -92,7 +92,7 @@ export default function CreateBotScreen({ navigation, route }: Props) {
           <View style={styles.infoBox}>
             <Ionicons name="information-circle-outline" size={16} color={colors.primary} />
             <Text style={styles.infoText}>
-              DCA will split ${amount || "0"} into recurring buys on {pair}.
+              DCA will split ₹{amount || "0"} into recurring buys on {pair}.
             </Text>
           </View>
         )}
@@ -116,7 +116,7 @@ export default function CreateBotScreen({ navigation, route }: Props) {
             ))}
           </View>
           <Text style={styles.previewHint}>
-            {grids} levels between ${low} – ${high}
+            {grids} levels between ₹{low} – ₹{high}
           </Text>
         </View>
       ) : null}

@@ -65,6 +65,7 @@ export default function AuthScreen({ navigation }: Props) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("user@mirrortrade.com");
   const [phone, setPhone] = useState("");
+  const [referralCode, setReferralCode] = useState("");
   const [password, setPassword] = useState("User@123");
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [error, setError] = useState("");
@@ -78,6 +79,7 @@ export default function AuthScreen({ navigation }: Props) {
       setPassword("");
       setName("");
       setPhone("");
+      setReferralCode("");
     } else {
       setEmail("user@mirrortrade.com");
       setPassword("User@123");
@@ -103,7 +105,7 @@ export default function AuthScreen({ navigation }: Props) {
       if (tab === "login") {
         await login(email.trim(), password);
       } else {
-        await register(name.trim(), email.trim(), password);
+        await register(name.trim(), email.trim(), password, referralCode);
       }
       navigation.replace("TwoFA");
     } catch (err) {
@@ -209,6 +211,14 @@ export default function AuthScreen({ navigation }: Props) {
                   onChangeText={setPhone}
                   keyboardType="phone-pad"
                   autoComplete="tel"
+                />
+                <AuthInput
+                  icon="gift-outline"
+                  label="Referral code"
+                  placeholder="MT-XXXXXX (optional)"
+                  value={referralCode}
+                  onChangeText={setReferralCode}
+                  autoCapitalize="characters"
                 />
               </>
             ) : null}

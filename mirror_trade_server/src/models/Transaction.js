@@ -38,6 +38,15 @@ const transactionSchema = new mongoose.Schema(
     percentApplied: { type: Number, default: null },
 
     note: { type: String, default: "" },
+
+    // Razorpay / payment audit (optional — set for gateway deposits)
+    paymentRef: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Payment",
+      default: null,
+    },
+    razorpayPaymentId: { type: String, default: null },
+    razorpayOrderId: { type: String, default: null },
   },
   { timestamps: true }
 );

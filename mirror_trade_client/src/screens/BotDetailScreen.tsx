@@ -109,12 +109,12 @@ export default function BotDetailScreen({ route, navigation }: Props) {
         <View style={styles.stat}>
           <Text style={styles.statLabel}>Investment</Text>
           <Text style={styles.statVal}>
-            ${bot.investment.toLocaleString()}
+            ₹{bot.investment.toLocaleString("en-IN")}
           </Text>
         </View>
         <View style={styles.stat}>
           <Text style={styles.statLabel}>PnL</Text>
-          <PnlText value={bot.pnl} prefix="$" size="lg" />
+          <PnlText value={bot.pnl} prefix="₹" size="lg" />
         </View>
         <View style={styles.stat}>
           <Text style={styles.statLabel}>Return</Text>

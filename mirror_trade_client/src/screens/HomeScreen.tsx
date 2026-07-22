@@ -1,30 +1,30 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Pressable, StyleSheet, Text, View, ScrollView, Image, ImageBackground } from "react-native";
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "../context/AuthContext";
 import { RootStackParamList } from "../navigation/types";
-import { traders, portfolio } from "../data/mock";
+import { traders } from "../data/mock";
 
 const APP_BG = "#1A1B26"; // Rich midnight dark theme from reference
 const CARD_BG = "#242633"; // Slightly lighter for cards
 const YELLOW = "#FFD143";
 
 const gridActions = [
+  { label: "VIP Plans", icon: "crown", route: "TeamRank" },
   { label: "Reward Hub", icon: "gift", route: "Referral" },
   { label: "Profit", icon: "chart-line", tab: "Portfolio" },
   { label: "Invest Control", icon: "shield-alt", route: "Security" },
-  { label: "Coaches", icon: "user-tie", tab: "Discover" },
-  { label: "Prize Pool", icon: "box-open", route: "Referral" },
   { label: "API Connect", icon: "plug", route: "ExchangeConnect" },
   { label: "Invite Friends", icon: "user-plus", route: "Referral" },
+  { label: "Coaches", icon: "user-tie", tab: "Discover" },
   { label: "More", icon: "th-large", route: "TradingPrefs" },
 ];
 
 export default function HomeScreen() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const tabNav = useNavigation<any>();
 
@@ -33,6 +33,13 @@ export default function HomeScreen() {
   const [activeFilter, setActiveFilter] = useState("90 Days");
 
   const [timeLeft, setTimeLeft] = useState({ h: 14, m: 21, s: 39 });
+
+  // Keep T-VIP / C-VIP badges in sync after deposits / team changes
+  useFocusEffect(
+    useCallback(() => {
+      refreshUser().catch(() => undefined);
+    }, [refreshUser])
+  );
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -94,7 +101,7 @@ export default function HomeScreen() {
               <Image source={{uri: "https://cdn-icons-png.flaticon.com/512/4213/4213958.png"}} style={styles.giftIcon} />
               <View>
                 <Text style={styles.inviteText}>Invite 3 Direct Members</Text>
-                <Text style={styles.inviteBonus}>+10 USDT</Text>
+                <Text style={styles.inviteBonus}>+₹10</Text>
               </View>
             </View>
             <View style={styles.inviteBtn}>
@@ -103,20 +110,36 @@ export default function HomeScreen() {
           </View>
         </Pressable>
 
-        {/* VIP CARDS */}
+        {/* VIP CARDS — C-VIP (team) & T-VIP (personal deposit) */}
         <View style={styles.vipRow}>
-          <LinearGradient colors={["#DEB887", "#B8860B"]} start={{x:0,y:0}} end={{x:1,y:1}} style={styles.vipCard}>
-            <MaterialCommunityIcons name="crown" size={20} color="#fff" style={styles.vipIcon} />
-            <Text style={styles.vipText}>C-VIP</Text>
-          </LinearGradient>
-          <LinearGradient colors={["#FFD700", "#FF8C00"]} start={{x:0,y:0}} end={{x:1,y:1}} style={styles.vipCard}>
-            <MaterialCommunityIcons name="diamond-stone" size={20} color="#fff" style={styles.vipIcon} />
-            <Text style={styles.vipText}>T-VIP</Text>
-          </LinearGradient>
-          <LinearGradient colors={["#C77DFF", "#7B2CBF"]} start={{x:0,y:0}} end={{x:1,y:1}} style={styles.vipCard}>
-            <MaterialCommunityIcons name="shield-star" size={20} color="#fff" style={styles.vipIcon} />
-            <Text style={styles.vipText}>S-VIP</Text>
-          </LinearGradient>
+          <Pressable
+            style={{ flex: 1 }}
+            onPress={() => navigation.navigate("TeamRank", { focus: "C-VIP" })}
+          >
+            <LinearGradient colors={["#DEB887", "#B8860B"]} start={{x:0,y:0}} end={{x:1,y:1}} style={styles.vipCard}>
+              <MaterialCommunityIcons name="crown" size={20} color="#fff" style={styles.vipIcon} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.vipText}>C-VIP</Text>
+                <Text style={styles.vipSub} numberOfLines={1}>
+                  {user?.cVipRank && user.cVipRank !== "NONE" ? user.cVipRank : "Team rank"}
+                </Text>
+              </View>
+            </LinearGradient>
+          </Pressable>
+          <Pressable
+            style={{ flex: 1 }}
+            onPress={() => navigation.navigate("TeamRank", { focus: "T-VIP" })}
+          >
+            <LinearGradient colors={["#FFD700", "#FF8C00"]} start={{x:0,y:0}} end={{x:1,y:1}} style={styles.vipCard}>
+              <MaterialCommunityIcons name="diamond-stone" size={20} color="#fff" style={styles.vipIcon} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.vipText}>T-VIP</Text>
+                <Text style={styles.vipSub} numberOfLines={1}>
+                  {user?.tVipRank && user.tVipRank !== "NONE" ? user.tVipRank : "Deposit rank"}
+                </Text>
+              </View>
+            </LinearGradient>
+          </Pressable>
         </View>
 
         {/* GRID MENU */}
@@ -190,13 +213,17 @@ export default function HomeScreen() {
               </View>
               <View style={{flexDirection: "row", alignItems: "center", marginTop: 10}}>
                 <Text style={styles.myRankNum}>50+</Text>
-                <View style={styles.coinIcon}><Text style={{color:"#fff", fontWeight:"bold", fontSize: 18}}>₮</Text></View>
+                <View style={styles.coinIcon}><Text style={{color:"#fff", fontWeight:"bold", fontSize: 18}}>₹</Text></View>
                 <View style={{marginLeft: 12}}>
                   <Text style={styles.myEmail}>{user?.email?.replace(/(.{2})(.*)(@.*)/, "$1***$3") || "ku***@gmail.com"}</Text>
                   <View style={{flexDirection: "row", alignItems: "center", marginTop: 4}}>
                     <Text style={{fontSize: 12}}>🇮🇳</Text>
                     <View style={styles.tvipBadge}>
-                      <Text style={styles.tvipText}>T-VIP1</Text>
+                      <Text style={styles.tvipText}>
+                        {user?.tVipRank && user.tVipRank !== "NONE"
+                          ? user.tVipRank
+                          : "T-VIP"}
+                      </Text>
                     </View>
                   </View>
                 </View>
@@ -204,7 +231,7 @@ export default function HomeScreen() {
             </View>
             <View style={styles.myRankRight}>
               <Text style={styles.earningLabel}>Earning</Text>
-              <Text style={styles.earningValue}>0.00 <Text style={styles.usdt}>USDT</Text></Text>
+              <Text style={styles.earningValue}>0.00 <Text style={styles.usdt}>INR</Text></Text>
             </View>
           </View>
 
@@ -236,7 +263,7 @@ export default function HomeScreen() {
                   </View>
                 </View>
               </View>
-              <Text style={styles.rEarning}>+{r.earning} <Text style={styles.usdt}>USDT</Text></Text>
+              <Text style={styles.rEarning}>+₹{r.earning} <Text style={styles.usdt}>INR</Text></Text>
             </Pressable>
           ))}
           
@@ -342,6 +369,12 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     fontSize: 16,
     fontStyle: "italic",
+  },
+  vipSub: {
+    color: "rgba(255,255,255,0.85)",
+    fontSize: 10,
+    fontWeight: "600",
+    marginTop: 1,
   },
   grid: {
     flexDirection: "row",

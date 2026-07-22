@@ -27,7 +27,7 @@ export default function CopySetupScreen({ route, navigation }: Props) {
       footer={
         <GradientButton
           variant="green"
-          label={`Start Copying · $${amount.toLocaleString()} USDT`}
+          label={`Start Copying · ₹${amount.toLocaleString("en-IN")} INR`}
           loading={loading}
           onPress={async () => {
             try {
@@ -44,7 +44,7 @@ export default function CopySetupScreen({ route, navigation }: Props) {
               });
               Alert.alert(
                 "Copy started",
-                `You are now copying ${trader.name} with $${amount}. (Dummy API Success)`,
+                `You are now copying ${trader.name} with ₹${amount}. (Dummy API Success)`,
                 [{ text: "OK", onPress: () => navigation.navigate("MainTabs") }]
               );
             } catch (err: any) {
@@ -82,8 +82,8 @@ export default function CopySetupScreen({ route, navigation }: Props) {
       <View style={styles.card}>
         <Text style={styles.cardLabel}>INVESTMENT AMOUNT</Text>
         <View style={styles.amountRow}>
-          <Text style={styles.amount}>${amount.toLocaleString()}</Text>
-          <Text style={styles.usdt}>USDT</Text>
+          <Text style={styles.amount}>₹{amount.toLocaleString("en-IN")}</Text>
+          <Text style={styles.usdt}>INR</Text>
         </View>
         <RangeSlider
           value={amount}
@@ -94,10 +94,10 @@ export default function CopySetupScreen({ route, navigation }: Props) {
           thumbColor={colors.primary}
         />
         <View style={styles.sliderLabels}>
-          <Text style={styles.sliderLabel}>$100</Text>
-          <Text style={styles.sliderLabel}>$1,000</Text>
-          <Text style={styles.sliderLabel}>$2,500</Text>
-          <Text style={styles.sliderLabel}>$5,000</Text>
+          <Text style={styles.sliderLabel}>₹100</Text>
+          <Text style={styles.sliderLabel}>₹1,000</Text>
+          <Text style={styles.sliderLabel}>₹2,500</Text>
+          <Text style={styles.sliderLabel}>₹5,000</Text>
         </View>
       </View>
 
@@ -149,7 +149,7 @@ export default function CopySetupScreen({ route, navigation }: Props) {
       {/* Summary */}
       <View style={styles.summary}>
         <Text style={styles.cardLabel}>ORDER SUMMARY</Text>
-        <Row label="Investment" value={`$${amount.toLocaleString()} USDT`} />
+        <Row label="Investment" value={`₹${amount.toLocaleString("en-IN")} INR`} />
         <Row label="Commission" value="10% of profit" />
         <Row label="Drawdown stop" value={`-${maxDd}%`} danger />
         <Row label="Size multiplier" value={`${multiplier}x`} />

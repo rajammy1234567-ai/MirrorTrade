@@ -35,7 +35,7 @@ export default function PortfolioScreen() {
         <View style={styles.summaryTop}>
           <View style={{ flex: 1 }}>
             <Text style={styles.sumLabel}>ALL-TIME PnL</Text>
-            <PnlText value={portfolio.allTimePnl} prefix="$" size="xl" />
+            <PnlText value={portfolio.allTimePnl} prefix="₹" size="xl" />
           </View>
           <View style={{ alignItems: "flex-end" }}>
             <Text style={styles.sumLabel}>OPEN POSITIONS</Text>
@@ -104,7 +104,7 @@ export default function PortfolioScreen() {
                 </View>
                 <View style={{ alignItems: "flex-end" }}>
                   <PnlText value={p.pnlPct} suffix="%" size="md" />
-                  <PnlText value={p.pnl} prefix="$" size="sm" bold={false} />
+                  <PnlText value={p.pnl} prefix="₹" size="sm" bold={false} />
                 </View>
               </View>
 
@@ -112,7 +112,7 @@ export default function PortfolioScreen() {
                 <View>
                   <Text style={styles.priceLabel}>ENTRY</Text>
                   <Text style={styles.priceVal}>
-                    ${p.entry.toLocaleString()}
+                    ₹{p.entry.toLocaleString("en-IN")}
                   </Text>
                 </View>
                 <View>
@@ -120,7 +120,7 @@ export default function PortfolioScreen() {
                     {tab === "active" ? "CURRENT" : "EXIT"}
                   </Text>
                   <Text style={styles.priceVal}>
-                    ${p.current.toLocaleString()}
+                    ₹{p.current.toLocaleString("en-IN")}
                   </Text>
                 </View>
                 {tab === "history" && p.closedDate ? (

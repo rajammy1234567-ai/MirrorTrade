@@ -24,7 +24,7 @@ const icons: Record<
   Discover: { active: "search", inactive: "search-outline" },
   Trade: { active: "hardware-chip", inactive: "hardware-chip-outline" },
   Portfolio: { active: "briefcase", inactive: "briefcase-outline" },
-  Profile: { active: "person", inactive: "person-outline" },
+  Profile: { active: "card", inactive: "card-outline" },
 };
 
 const labels: Record<keyof MainTabParamList, string> = {
@@ -32,7 +32,7 @@ const labels: Record<keyof MainTabParamList, string> = {
   Discover: "Discover",
   Trade: "Bots",
   Portfolio: "Portfolio",
-  Profile: "Profile",
+  Profile: "Assets",
 };
 
 const TAB_BASE = 56;

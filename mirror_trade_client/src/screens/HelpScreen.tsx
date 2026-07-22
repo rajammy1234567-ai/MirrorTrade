@@ -12,7 +12,7 @@ type Props = NativeStackScreenProps<RootStackParamList, "Help">;
 const faqs = [
   {
     q: "How does copy trading work?",
-    a: "You allocate USDT to a trader. When they open or close positions, MirrorTrade mirrors the trade size (with your multiplier) on your connected exchange.",
+    a: "You allocate INR to a trader. When they open or close positions, MirrorTrade mirrors the trade size (with your multiplier) on your connected exchange.",
   },
   {
     q: "Is withdrawal access required?",

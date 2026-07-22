@@ -81,7 +81,7 @@ async function paySameLevelBonus(newCVip5UserId, triggerAmount) {
         sourceUser: newUser._id,
         rankAtTime: upline.cVipRank,
         percentApplied: percent,
-        note: `Same level bonus triggered by ${newUser.username} reaching C-VIP-5`,
+        note: `Same level bonus triggered by ${newUser.name || newUser.email} reaching C-VIP-5`,
       });
 
       return payout;

@@ -8,7 +8,11 @@
     "dev": "nodemon src/server.js",
     "seed": "node src/seed.js"
   },
-  "keywords": ["mirror-trade", "mern", "api"],
+  "keywords": [
+    "mirror-trade",
+    "mern",
+    "api"
+  ],
   "license": "MIT",
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -19,7 +23,8 @@
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.9.3",
-    "morgan": "^1.10.0"
+    "morgan": "^1.10.0",
+    "razorpay": "^2.9.8"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"
