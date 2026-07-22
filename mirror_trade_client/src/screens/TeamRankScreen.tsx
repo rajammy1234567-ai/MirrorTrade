@@ -17,6 +17,7 @@ import Screen from "../components/Screen";
 import GradientButton from "../components/GradientButton";
 import VipCharts from "../components/VipCharts";
 import {
+  API_URL,
   getApiErrorMessage,
   getMyPlanStatusRequest,
   getMyTransactionsRequest,
@@ -438,6 +439,7 @@ export default function TeamRankScreen({ navigation, route }: Props) {
         {error ? (
           <View style={styles.errorBox}>
             <Text style={styles.errorText}>{error}</Text>
+            <Text style={styles.errorMeta}>API: {API_URL}</Text>
             <Pressable onPress={load}>
               <Text style={styles.retry}>Retry</Text>
             </Pressable>
@@ -850,6 +852,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   errorText: { color: colors.loss, marginBottom: 6 },
+  errorMeta: { color: colors.muted, fontSize: 11, marginBottom: 8 },
   retry: { color: colors.primary, fontWeight: "700" },
   modelBanner: {
     flexDirection: "row",

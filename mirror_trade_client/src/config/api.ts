@@ -1,28 +1,34 @@
 import axios, { type AxiosError } from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-/** Production API (Render). Override with EXPO_PUBLIC_API_URL only for local dev. */
-export const DEFAULT_API_URL = "https://mirrortrade-api.onrender.com/api";
-
 /**
- * API base URL
- * - EXPO_PUBLIC_API_URL from .env wins (use for local server if needed)
- * - otherwise always deployed API — app should not require localhost
+ * Always use the deployed MirrorTrade API.
+ * Local override only when EXPO_PUBLIC_USE_LOCAL_API=1 AND EXPO_PUBLIC_API_URL is set.
  */
+const DEPLOYED_API = "https://mirrortrade-api.onrender.com/api";
+
 function resolveApiUrl() {
-  const fromEnv = process.env.EXPO_PUBLIC_API_URL?.trim();
-  if (fromEnv) {
-    return fromEnv.replace(/\/$/, "");
+  const useLocal = process.env.EXPO_PUBLIC_USE_LOCAL_API === "1";
+  const fromEnv = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, "");
+
+  if (useLocal && fromEnv) {
+    return fromEnv;
   }
-  return DEFAULT_API_URL;
+
+  // Never silently use localhost — always deployed unless USE_LOCAL_API=1
+  if (fromEnv && !/localhost|127\.0\.0\.1|10\.0\.2\.2/.test(fromEnv)) {
+    return fromEnv;
+  }
+
+  return DEPLOYED_API;
 }
 
 export const API_URL = resolveApiUrl();
+export const DEFAULT_API_URL = DEPLOYED_API;
 export const TOKEN_KEY = "mt_token";
 
 /**
- * Timeout: long enough for Render free-tier cold start (~30–50s),
- * still bounded so the UI does not hang forever.
+ * Timeout: long enough for Render free-tier cold start (~30–50s).
  */
 export const api = axios.create({
   baseURL: API_URL,
@@ -32,7 +38,12 @@ export const api = axios.create({
   timeout: 45000,
 });
 
+// Belt-and-suspenders: force baseURL even if a stale bundle tried something else
+api.defaults.baseURL = API_URL;
+
 api.interceptors.request.use(async (config) => {
+  // Always hit deployed API unless local override is active
+  config.baseURL = API_URL;
   try {
     const token = await AsyncStorage.getItem(TOKEN_KEY);
     if (token) {
@@ -191,7 +202,7 @@ function isRouteMissing(err: unknown) {
   return (err as AxiosError)?.response?.status === 404;
 }
 
-/** Race a promise so screens never hang past maxMs (Render cold start needs more headroom) */
+/** Race a promise so screens never hang past maxMs (Render cold start needs headroom) */
 export function withTimeout<T>(promise: Promise<T>, maxMs = 50000): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const t = setTimeout(() => reject(new Error("Request timed out")), maxMs);
@@ -366,4 +377,3 @@ export async function startCopyRequest(
   });
   return data;
 }
-
