@@ -51,17 +51,17 @@ const T_VIP_STRATEGY = [
   {
     icon: "wallet-outline" as const,
     title: "Exchange capital",
-    desc: "Apna capital exchange pe rakho (deposit/withdraw sirf exchange pe). App us capital se level decide karti hai.",
+    desc: "Keep your capital on the exchange (deposit and withdraw only there). The app uses that capital to set your VIP level.",
   },
   {
     icon: "trending-up-outline" as const,
     title: "Profit share %",
-    desc: "Exchange trading profit pool se aapko rank ke hisaab se % milta hai (20% → 65%).",
+    desc: "You earn a share of the exchange trading profit pool based on your rank (20% → 65%).",
   },
   {
     icon: "diamond-outline" as const,
     title: "Auto upgrade",
-    desc: "Capital sync ke baad higher T-VIP unlock — koi in-app payment nahi.",
+    desc: "After capital sync, higher T-VIP ranks unlock automatically — no in-app payment required.",
   },
 ];
 
@@ -69,17 +69,17 @@ const C_VIP_STRATEGY = [
   {
     icon: "person-outline" as const,
     title: "Own capital",
-    desc: "Pehle apna exchange capital min level ke barabar hona chahiye.",
+    desc: "Your exchange capital must first meet the minimum required for that level.",
   },
   {
     icon: "people-outline" as const,
     title: "Direct referrals",
-    desc: "Apne code se join hone wale direct members.",
+    desc: "Members who join using your referral code count as your direct referrals.",
   },
   {
     icon: "git-network-outline" as const,
     title: "Team business",
-    desc: "Poori downline ka exchange capital total = team business.",
+    desc: "Total exchange capital across your full downline equals team business.",
   },
 ];
 
@@ -394,12 +394,7 @@ export default function TeamRankScreen({ navigation, route }: Props) {
         </Pressable>
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.tabsScroll}
-        style={styles.tabsWrap}
-      >
+      <View style={styles.tabsWrap}>
         {(
           [
             { key: "overview", label: "Overview", icon: "grid-outline" },
@@ -417,14 +412,19 @@ export default function TeamRankScreen({ navigation, route }: Props) {
             >
               <Ionicons
                 name={t.icon}
-                size={15}
-                color={active ? colors.text : colors.muted}
+                size={16}
+                color={active ? colors.primary : colors.muted}
               />
-              <Text style={[styles.tabText, active && styles.tabTextActive]}>{t.label}</Text>
+              <Text
+                style={[styles.tabText, active && styles.tabTextActive]}
+                numberOfLines={1}
+              >
+                {t.label}
+              </Text>
             </Pressable>
           );
         })}
-      </ScrollView>
+      </View>
 
       <ScrollView
         contentContainerStyle={styles.content}
@@ -828,21 +828,45 @@ const styles = StyleSheet.create({
   backBtn: { flexDirection: "row", alignItems: "center", gap: 8 },
   headerTitle: { fontSize: 18, fontWeight: "700", color: colors.text },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  tabsWrap: { maxHeight: 52, borderBottomWidth: 1, borderBottomColor: colors.border },
-  tabsScroll: { paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
-  tab: {
+  tabsWrap: {
     flexDirection: "row",
+    alignItems: "stretch",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.bg,
+  },
+  tab: {
+    flex: 1,
+    flexBasis: 0,
+    flexGrow: 1,
+    flexShrink: 0,
+    flexDirection: "column",
     alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 14,
+    justifyContent: "center",
+    gap: 4,
+    minHeight: 56,
+    paddingHorizontal: 4,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: 12,
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  tabActive: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
-  tabText: { color: colors.muted, fontWeight: "600", fontSize: 13 },
+  tabActive: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+  },
+  tabText: {
+    color: colors.muted,
+    fontWeight: "700",
+    fontSize: 11,
+    letterSpacing: 0.2,
+    textAlign: "center",
+    width: "100%",
+  },
   tabTextActive: { color: colors.text },
   content: { padding: 16, paddingBottom: 40 },
   errorBox: {

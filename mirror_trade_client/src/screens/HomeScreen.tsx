@@ -1,5 +1,12 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Pressable, StyleSheet, Text, View, ScrollView, Image, ImageBackground } from "react-native";
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
+  Image,
+} from "react-native";
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -7,34 +14,32 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "../context/AuthContext";
 import { RootStackParamList } from "../navigation/types";
 import { traders } from "../data/mock";
-
-const APP_BG = "#1A1B26"; // Rich midnight dark theme from reference
-const CARD_BG = "#242633"; // Slightly lighter for cards
-const YELLOW = "#FFD143";
+import { colors } from "../theme/colors";
 
 const gridActions = [
-  { label: "VIP Plans", icon: "crown", route: "TeamRank" },
-  { label: "Reward Hub", icon: "gift", route: "Referral" },
-  { label: "Profit", icon: "chart-line", tab: "Portfolio" },
-  { label: "Invest Control", icon: "shield-alt", route: "Security" },
-  { label: "API Connect", icon: "plug", route: "ExchangeConnect" },
-  { label: "Invite Friends", icon: "user-plus", route: "Referral" },
-  { label: "Coaches", icon: "user-tie", tab: "Discover" },
-  { label: "More", icon: "th-large", route: "TradingPrefs" },
+  { label: "VIP Plans", icon: "crown" as const, route: "TeamRank", tint: colors.primary },
+  { label: "Reward Hub", icon: "gift" as const, route: "Referral", tint: colors.warn },
+  { label: "Profit", icon: "chart-line" as const, tab: "Portfolio", tint: colors.profit },
+  { label: "Invest Control", icon: "shield-alt" as const, route: "Security", tint: "#8B5CF6" },
+  { label: "API Connect", icon: "plug" as const, route: "ExchangeConnect", tint: colors.primary },
+  { label: "Invite Friends", icon: "user-plus" as const, route: "Referral", tint: colors.profit },
+  { label: "Coaches", icon: "user-tie" as const, tab: "Discover", tint: colors.warn },
+  { label: "More", icon: "th-large" as const, route: "TradingPrefs", tint: colors.muted },
 ];
+
+const RANK_MEDAL = ["#5B6CFF", "#8B5CF6", "#00D084"] as const;
 
 export default function HomeScreen() {
   const { user, refreshUser } = useAuth();
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const tabNav = useNavigation<any>();
 
   const [activeMainTab, setActiveMainTab] = useState("Profit");
   const [activeSubTab, setActiveSubTab] = useState("Automated");
   const [activeFilter, setActiveFilter] = useState("90 Days");
-
   const [timeLeft, setTimeLeft] = useState({ h: 14, m: 21, s: 39 });
 
-  // Keep T-VIP / C-VIP badges in sync after deposits / team changes
   useFocusEffect(
     useCallback(() => {
       refreshUser().catch(() => undefined);
@@ -43,7 +48,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setTimeLeft(prev => {
+      setTimeLeft((prev) => {
         let { h, m, s } = prev;
         if (s > 0) s--;
         else {
@@ -65,40 +70,61 @@ export default function HomeScreen() {
   const topTraders = traders.slice(0, 3).map((t, index) => ({
     ...t,
     rank: index + 1,
-    earning: (t.roi30d * 125).toLocaleString(undefined, { minimumFractionDigits: 2 }),
+    earning: (t.roi30d * 125).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+    }),
     vip: `T-VIP${6 - index}`,
     flag: ["🇷🇼", "🇮🇩", "🇺🇸"][index % 3],
     avatarImg: `https://i.pravatar.cc/100?u=${t.id}`,
   }));
 
-  const handleAction = (item: any) => {
-    if (item.route) navigation.navigate(item.route as any);
-    else if (item.tab) tabNav.navigate(item.tab);
+  const handleAction = (item: (typeof gridActions)[number]) => {
+    if ("route" in item && item.route) navigation.navigate(item.route as any);
+    else if ("tab" in item && item.tab) tabNav.navigate(item.tab);
   };
 
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         {/* TOP NAV */}
         <View style={styles.topNav}>
-          <Pressable style={styles.profileIconWrap} onPress={() => tabNav.navigate("Profile")}>
-            <Ionicons name="person" size={18} color="#fff" />
+          <Pressable
+            style={styles.profileIconWrap}
+            onPress={() => tabNav.navigate("Profile")}
+          >
+            <Ionicons name="person" size={18} color={colors.text} />
           </Pressable>
           <View style={styles.topNavRight}>
-            <Pressable style={styles.navIcon}><Ionicons name="paper-plane-outline" size={24} color="#fff" /></Pressable>
-            <Pressable style={styles.navIcon}><Ionicons name="time-outline" size={26} color="#fff" /></Pressable>
-            <Pressable style={styles.navIcon} onPress={() => navigation.navigate("Notifications")}>
-              <Ionicons name="notifications-outline" size={26} color="#fff" />
+            <Pressable style={styles.navIcon}>
+              <Ionicons name="paper-plane-outline" size={22} color={colors.text} />
+            </Pressable>
+            <Pressable style={styles.navIcon}>
+              <Ionicons name="time-outline" size={24} color={colors.text} />
+            </Pressable>
+            <Pressable
+              style={styles.navIcon}
+              onPress={() => navigation.navigate("Notifications")}
+            >
+              <Ionicons name="notifications-outline" size={24} color={colors.text} />
             </Pressable>
           </View>
         </View>
 
         {/* INVITE BANNER */}
         <Pressable onPress={() => navigation.navigate("Referral")}>
-          <View style={styles.inviteBanner}>
+          <LinearGradient
+            colors={["rgba(91,108,255,0.22)", "rgba(139,92,246,0.12)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.inviteBanner}
+          >
             <View style={styles.inviteLeft}>
-              <Image source={{uri: "https://cdn-icons-png.flaticon.com/512/4213/4213958.png"}} style={styles.giftIcon} />
+              <View style={styles.giftIconWrap}>
+                <Ionicons name="gift" size={22} color={colors.primary} />
+              </View>
               <View>
                 <Text style={styles.inviteText}>Invite 3 Direct Members</Text>
                 <Text style={styles.inviteBonus}>+₹10</Text>
@@ -107,37 +133,63 @@ export default function HomeScreen() {
             <View style={styles.inviteBtn}>
               <Text style={styles.inviteBtnText}>Invite Now</Text>
             </View>
-          </View>
+          </LinearGradient>
         </Pressable>
 
-        {/* VIP CARDS — C-VIP (team) & T-VIP (personal deposit) */}
+        {/* VIP CARDS */}
         <View style={styles.vipRow}>
           <Pressable
             style={{ flex: 1 }}
             onPress={() => navigation.navigate("TeamRank", { focus: "C-VIP" })}
           >
-            <LinearGradient colors={["#DEB887", "#B8860B"]} start={{x:0,y:0}} end={{x:1,y:1}} style={styles.vipCard}>
-              <MaterialCommunityIcons name="crown" size={20} color="#fff" style={styles.vipIcon} />
+            <LinearGradient
+              colors={[colors.primaryEnd, "#6D28D9"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.vipCard}
+            >
+              <MaterialCommunityIcons
+                name="crown"
+                size={20}
+                color="#fff"
+                style={styles.vipIcon}
+              />
               <View style={{ flex: 1 }}>
                 <Text style={styles.vipText}>C-VIP</Text>
                 <Text style={styles.vipSub} numberOfLines={1}>
-                  {user?.cVipRank && user.cVipRank !== "NONE" ? user.cVipRank : "Team rank"}
+                  {user?.cVipRank && user.cVipRank !== "NONE"
+                    ? user.cVipRank
+                    : "Team rank"}
                 </Text>
               </View>
+              <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.7)" />
             </LinearGradient>
           </Pressable>
           <Pressable
             style={{ flex: 1 }}
             onPress={() => navigation.navigate("TeamRank", { focus: "T-VIP" })}
           >
-            <LinearGradient colors={["#FFD700", "#FF8C00"]} start={{x:0,y:0}} end={{x:1,y:1}} style={styles.vipCard}>
-              <MaterialCommunityIcons name="diamond-stone" size={20} color="#fff" style={styles.vipIcon} />
+            <LinearGradient
+              colors={[colors.primary, "#4338CA"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.vipCard}
+            >
+              <MaterialCommunityIcons
+                name="diamond-stone"
+                size={20}
+                color="#fff"
+                style={styles.vipIcon}
+              />
               <View style={{ flex: 1 }}>
                 <Text style={styles.vipText}>T-VIP</Text>
                 <Text style={styles.vipSub} numberOfLines={1}>
-                  {user?.tVipRank && user.tVipRank !== "NONE" ? user.tVipRank : "Deposit rank"}
+                  {user?.tVipRank && user.tVipRank !== "NONE"
+                    ? user.tVipRank
+                    : "Deposit rank"}
                 </Text>
               </View>
+              <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.7)" />
             </LinearGradient>
           </Pressable>
         </View>
@@ -145,8 +197,14 @@ export default function HomeScreen() {
         {/* GRID MENU */}
         <View style={styles.grid}>
           {gridActions.map((item, i) => (
-            <Pressable key={i} style={styles.gridItem} onPress={() => handleAction(item)}>
-              <FontAwesome5 name={item.icon} size={22} color="#E2E8F0" />
+            <Pressable
+              key={i}
+              style={styles.gridItem}
+              onPress={() => handleAction(item)}
+            >
+              <View style={styles.gridIconWrap}>
+                <FontAwesome5 name={item.icon} size={18} color={item.tint} />
+              </View>
               <Text style={styles.gridLabel}>{item.label}</Text>
             </Pressable>
           ))}
@@ -154,70 +212,158 @@ export default function HomeScreen() {
 
         {/* ANNOUNCEMENT */}
         <View style={styles.announcement}>
-          <Ionicons name="volume-medium-outline" size={20} color="#94A3B8" />
-          <Text style={styles.announceText}>MirrorTrade analyzes market trends for you.</Text>
-          <Ionicons name="menu-outline" size={22} color="#94A3B8" />
+          <View style={styles.announceIcon}>
+            <Ionicons name="volume-medium" size={16} color={colors.primary} />
+          </View>
+          <Text style={styles.announceText}>
+            MirrorTrade analyzes market trends for you.
+          </Text>
+          <Ionicons name="menu-outline" size={20} color={colors.muted} />
         </View>
 
-        {/* RANKING SECTION WITH TROPHY BG */}
+        {/* RANKING SECTION */}
         <View style={styles.rankingContainer}>
-          {/* Trophy Background Image */}
-          <Image 
-            source={{uri: "https://cdn-icons-png.flaticon.com/512/3176/3176294.png"}} 
-            style={styles.trophyBg} 
-            resizeMode="contain"
-          />
-
           <Text style={styles.rankingTitle}>Ranking</Text>
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rankingTabs}>
-            {["Profit", "Commission", "Rewards", "Points", "S-Vol"].map(tab => (
-              <Pressable key={tab} onPress={() => setActiveMainTab(tab)} style={styles.rTabBtn}>
-                <Text style={[styles.rTab, activeMainTab === tab && styles.rTabActive]}>{tab}</Text>
-                {activeMainTab === tab && <View style={styles.rTabIndicator} />}
-              </Pressable>
-            ))}
-            <Ionicons name="settings-outline" size={18} color="#94A3B8" style={{marginLeft: 10}}/>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.rankingTabs}
+          >
+            {["Profit", "Commission", "Rewards", "Points", "S-Vol"].map(
+              (tab) => (
+                <Pressable
+                  key={tab}
+                  onPress={() => setActiveMainTab(tab)}
+                  style={styles.rTabBtn}
+                >
+                  <Text
+                    style={[
+                      styles.rTab,
+                      activeMainTab === tab && styles.rTabActive,
+                    ]}
+                  >
+                    {tab}
+                  </Text>
+                  {activeMainTab === tab ? (
+                    <View style={styles.rTabIndicator} />
+                  ) : null}
+                </Pressable>
+              )
+            )}
+            <Ionicons
+              name="settings-outline"
+              size={18}
+              color={colors.muted}
+              style={{ marginLeft: 10 }}
+            />
           </ScrollView>
 
           {/* SUB TABS */}
           <View style={styles.subTabsWrap}>
             <View style={styles.subTabs}>
-              {["Automated", "Signal", "Manual"].map(tab => (
-                <Pressable key={tab} style={[styles.subTab, activeSubTab === tab && styles.subTabActive]} onPress={() => setActiveSubTab(tab)}>
-                  <Text style={[styles.subTabText, activeSubTab === tab && styles.subTabTextActive]}>{tab}</Text>
+              {["Automated", "Signal", "Manual"].map((tab) => (
+                <Pressable
+                  key={tab}
+                  style={[
+                    styles.subTab,
+                    activeSubTab === tab && styles.subTabActive,
+                  ]}
+                  onPress={() => setActiveSubTab(tab)}
+                >
+                  <Text
+                    style={[
+                      styles.subTabText,
+                      activeSubTab === tab && styles.subTabTextActive,
+                    ]}
+                  >
+                    {tab}
+                  </Text>
                 </Pressable>
               ))}
             </View>
           </View>
-          
-          <Text style={styles.infoText}>Automated data includes both AI Brain and KOL Brain.</Text>
+
+          <Text style={styles.infoText}>
+            Automated data includes both AI Brain and KOL Brain.
+          </Text>
 
           {/* PILL FILTERS */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterPills}>
-            {["90 Days", "30 Days", "15 Days", "1 Day"].map(filter => (
-              <Pressable key={filter} style={[styles.pill, activeFilter === filter && styles.pillActive]} onPress={() => setActiveFilter(filter)}>
-                <Text style={[styles.pillText, activeFilter === filter && styles.pillTextActive]}>{filter}</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterPills}
+          >
+            {["90 Days", "30 Days", "15 Days", "1 Day"].map((filter) => (
+              <Pressable
+                key={filter}
+                style={[
+                  styles.pill,
+                  activeFilter === filter && styles.pillActive,
+                ]}
+                onPress={() => setActiveFilter(filter)}
+              >
+                <Text
+                  style={[
+                    styles.pillText,
+                    activeFilter === filter && styles.pillTextActive,
+                  ]}
+                >
+                  {filter}
+                </Text>
               </Pressable>
             ))}
           </ScrollView>
 
-          <Text style={styles.updateText}>Next Ranking update: {pad(timeLeft.h)} : {pad(timeLeft.m)} : {pad(timeLeft.s)}</Text>
+          <Text style={styles.updateText}>
+            Next Ranking update: {pad(timeLeft.h)} : {pad(timeLeft.m)} :{" "}
+            {pad(timeLeft.s)}
+          </Text>
 
           {/* MY RANKING */}
           <View style={styles.myRankingCard}>
             <View style={styles.myRankLeft}>
-              <View style={{flexDirection: "row", alignItems: "center"}}>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
                 <Text style={styles.myRankBadge}>My Ranking</Text>
-                <Ionicons name="help-circle-outline" size={14} color="#94A3B8" style={{marginLeft:4}} />
+                <Ionicons
+                  name="help-circle-outline"
+                  size={14}
+                  color={colors.muted}
+                  style={{ marginLeft: 4 }}
+                />
               </View>
-              <View style={{flexDirection: "row", alignItems: "center", marginTop: 10}}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  marginTop: 10,
+                }}
+              >
                 <Text style={styles.myRankNum}>50+</Text>
-                <View style={styles.coinIcon}><Text style={{color:"#fff", fontWeight:"bold", fontSize: 18}}>₹</Text></View>
-                <View style={{marginLeft: 12}}>
-                  <Text style={styles.myEmail}>{user?.email?.replace(/(.{2})(.*)(@.*)/, "$1***$3") || "ku***@gmail.com"}</Text>
-                  <View style={{flexDirection: "row", alignItems: "center", marginTop: 4}}>
-                    <Text style={{fontSize: 12}}>🇮🇳</Text>
+                <View style={styles.coinIcon}>
+                  <Text
+                    style={{
+                      color: "#fff",
+                      fontWeight: "bold",
+                      fontSize: 14,
+                    }}
+                  >
+                    ₹
+                  </Text>
+                </View>
+                <View style={{ marginLeft: 12 }}>
+                  <Text style={styles.myEmail}>
+                    {user?.email?.replace(/(.{2})(.*)(@.*)/, "$1***$3") ||
+                      "ku***@gmail.com"}
+                  </Text>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      marginTop: 4,
+                    }}
+                  >
+                    <Text style={{ fontSize: 12 }}>🇮🇳</Text>
                     <View style={styles.tvipBadge}>
                       <Text style={styles.tvipText}>
                         {user?.tVipRank && user.tVipRank !== "NONE"
@@ -231,7 +377,9 @@ export default function HomeScreen() {
             </View>
             <View style={styles.myRankRight}>
               <Text style={styles.earningLabel}>Earning</Text>
-              <Text style={styles.earningValue}>0.00 <Text style={styles.usdt}>INR</Text></Text>
+              <Text style={styles.earningValue}>
+                0.00 <Text style={styles.usdt}>INR</Text>
+              </Text>
             </View>
           </View>
 
@@ -243,30 +391,44 @@ export default function HomeScreen() {
 
           {/* LIST ITEMS */}
           {topTraders.map((r, i) => (
-            <Pressable key={r.id} style={styles.rankItem} onPress={() => navigation.navigate("TraderDetail", { traderId: r.id })}>
+            <Pressable
+              key={r.id}
+              style={styles.rankItem}
+              onPress={() =>
+                navigation.navigate("TraderDetail", { traderId: r.id })
+              }
+            >
               <View style={styles.rankItemLeft}>
-                <ImageBackground 
-                  source={{ uri: i === 0 ? "https://cdn-icons-png.flaticon.com/512/744/744922.png" : i === 1 ? "https://cdn-icons-png.flaticon.com/512/744/744984.png" : "https://cdn-icons-png.flaticon.com/512/744/744986.png" }}
-                  style={styles.medalBg}
-                  imageStyle={{tintColor: i===0?"#FFD700":i===1?"#C0C0C0":"#CD7F32"}}
+                <View
+                  style={[
+                    styles.rankBadge,
+                    { backgroundColor: RANK_MEDAL[i] || colors.elevated },
+                  ]}
                 >
                   <Text style={styles.medalText}>{r.rank}</Text>
-                </ImageBackground>
+                </View>
                 <Image source={{ uri: r.avatarImg }} style={styles.avatarImg} />
-                <View style={{marginLeft: 12}}>
+                <View style={{ marginLeft: 12 }}>
                   <Text style={styles.rName}>{r.name}</Text>
-                  <View style={{flexDirection: "row", alignItems: "center", marginTop: 4}}>
-                    <Text style={{fontSize: 12}}>{r.flag}</Text>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      marginTop: 4,
+                    }}
+                  >
+                    <Text style={{ fontSize: 12 }}>{r.flag}</Text>
                     <View style={styles.tvipBadgeRank}>
                       <Text style={styles.tvipText}>{r.vip}</Text>
                     </View>
                   </View>
                 </View>
               </View>
-              <Text style={styles.rEarning}>+₹{r.earning} <Text style={styles.usdt}>INR</Text></Text>
+              <Text style={styles.rEarning}>
+                +₹{r.earning} <Text style={styles.usdt}>INR</Text>
+              </Text>
             </Pressable>
           ))}
-          
         </View>
       </ScrollView>
     </View>
@@ -276,8 +438,8 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: APP_BG,
-    paddingTop: 45, // Safe area approx
+    backgroundColor: colors.bg,
+    paddingTop: 45,
   },
   scrollContent: {
     paddingBottom: 40,
@@ -288,169 +450,193 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
     paddingTop: 10,
-    paddingBottom: 20,
+    paddingBottom: 18,
   },
   profileIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#CBD5E1",
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: "center",
     justifyContent: "center",
   },
   topNavRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 16,
+    gap: 8,
   },
   navIcon: {
-    padding: 2,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
   },
   inviteBanner: {
     marginHorizontal: 16,
-    backgroundColor: CARD_BG,
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 14,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(91,108,255,0.3)",
   },
   inviteLeft: {
     flexDirection: "row",
     alignItems: "center",
+    flex: 1,
   },
-  giftIcon: {
-    width: 40, 
-    height: 40, 
-    marginRight: 12
+  giftIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: colors.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
   },
   inviteText: {
-    color: "#CBD5E1",
+    color: colors.muted,
     fontSize: 13,
+    fontWeight: "600",
   },
   inviteBonus: {
-    color: "#fff",
+    color: colors.text,
     fontSize: 18,
     fontWeight: "900",
     marginTop: 2,
   },
   inviteBtn: {
-    backgroundColor: YELLOW,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
   },
   inviteBtnText: {
-    color: "#000",
+    color: "#fff",
     fontWeight: "800",
-    fontSize: 13,
+    fontSize: 12,
   },
   vipRow: {
     flexDirection: "row",
-    paddingHorizontal: 16,
-    marginTop: 20,
-    justifyContent: "space-between",
+    paddingHorizontal: 12,
+    marginTop: 16,
+    gap: 8,
   },
   vipCard: {
     flex: 1,
     flexDirection: "row",
-    height: 65,
-    borderRadius: 12,
-    marginHorizontal: 4,
+    minHeight: 68,
+    borderRadius: 14,
+    paddingHorizontal: 12,
     alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
+    gap: 8,
   },
   vipIcon: {
-    opacity: 0.8,
+    opacity: 0.95,
   },
   vipText: {
     color: "#fff",
     fontWeight: "900",
-    fontSize: 16,
-    fontStyle: "italic",
+    fontSize: 15,
   },
   vipSub: {
     color: "rgba(255,255,255,0.85)",
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "600",
-    marginTop: 1,
+    marginTop: 2,
   },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    paddingHorizontal: 8,
-    marginTop: 24,
+    paddingHorizontal: 10,
+    marginTop: 20,
   },
   gridItem: {
     width: "25%",
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: 18,
+  },
+  gridIconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
   },
   gridLabel: {
-    color: "#F8FAFC",
-    fontSize: 12,
-    marginTop: 10,
+    color: colors.text,
+    fontSize: 11,
+    marginTop: 8,
     fontWeight: "600",
+    textAlign: "center",
+    paddingHorizontal: 2,
   },
   announcement: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: CARD_BG,
+    backgroundColor: colors.card,
     marginHorizontal: 16,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
     justifyContent: "space-between",
   },
+  announceIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: colors.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   announceText: {
-    color: "#CBD5E1",
-    fontSize: 13,
+    color: colors.muted,
+    fontSize: 12,
     flex: 1,
-    marginLeft: 12,
+    marginHorizontal: 10,
+    fontWeight: "500",
   },
   rankingContainer: {
     marginTop: 24,
     paddingHorizontal: 16,
-    position: "relative",
-  },
-  trophyBg: {
-    position: "absolute",
-    right: -20,
-    top: 20,
-    width: 200,
-    height: 200,
-    opacity: 0.1,
-    zIndex: -1,
   },
   rankingTitle: {
-    color: "#D4AF37", // A darker gold text for Ranking
-    fontSize: 32,
+    color: colors.text,
+    fontSize: 26,
     fontWeight: "900",
-    fontStyle: "italic",
-    textShadowColor: "rgba(212, 175, 55, 0.4)",
-    textShadowOffset: {width: 0, height: 2},
-    textShadowRadius: 10,
+    letterSpacing: -0.3,
   },
   rankingTabs: {
     flexDirection: "row",
     alignItems: "flex-end",
-    marginTop: 10,
+    marginTop: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#334155",
+    borderBottomColor: colors.border,
   },
   rTabBtn: {
-    marginRight: 24,
+    marginRight: 20,
     position: "relative",
     paddingBottom: 10,
   },
   rTab: {
-    color: "#94A3B8",
+    color: colors.muted,
     fontSize: 14,
     fontWeight: "700",
   },
   rTabActive: {
-    color: "#fff",
+    color: colors.text,
   },
   rTabIndicator: {
     position: "absolute",
@@ -458,7 +644,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 3,
-    backgroundColor: YELLOW,
+    backgroundColor: colors.primary,
     borderRadius: 2,
   },
   subTabsWrap: {
@@ -467,80 +653,88 @@ const styles = StyleSheet.create({
   },
   subTabs: {
     flexDirection: "row",
-    backgroundColor: "rgba(255,255,255,0.03)",
-    borderRadius: 20,
+    backgroundColor: colors.card,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#334155",
+    borderColor: colors.border,
     width: "100%",
+    padding: 4,
   },
   subTab: {
     flex: 1,
     paddingVertical: 10,
     alignItems: "center",
-    borderRadius: 20,
+    borderRadius: 10,
   },
   subTabActive: {
-    backgroundColor: YELLOW,
+    backgroundColor: colors.primary,
   },
   subTabText: {
-    color: "#94A3B8",
+    color: colors.muted,
     fontWeight: "700",
     fontSize: 13,
   },
   subTabTextActive: {
-    color: "#000",
+    color: "#fff",
     fontWeight: "800",
     fontSize: 13,
   },
   infoText: {
-    color: "#64748B",
+    color: colors.muted,
     fontSize: 12,
     marginTop: 14,
   },
   filterPills: {
     flexDirection: "row",
-    marginTop: 16,
+    marginTop: 14,
+    gap: 8,
   },
   pill: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
     borderRadius: 20,
-    marginRight: 10,
-    backgroundColor: "transparent",
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   pillActive: {
-    backgroundColor: "#F1F5F9",
+    backgroundColor: colors.primarySoft,
+    borderColor: "rgba(91,108,255,0.45)",
   },
   pillText: {
-    color: "#64748B",
-    fontSize: 13,
+    color: colors.muted,
+    fontSize: 12,
     fontWeight: "700",
   },
   pillTextActive: {
-    color: "#0F172A",
+    color: colors.primary,
   },
   updateText: {
-    color: "#64748B",
+    color: colors.muted,
     fontSize: 12,
     marginTop: 14,
   },
   myRankingCard: {
-    backgroundColor: CARD_BG,
-    borderRadius: 12,
+    backgroundColor: colors.card,
+    borderRadius: 16,
     padding: 16,
-    marginTop: 16,
+    marginTop: 14,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  myRankLeft: {},
+  myRankLeft: {
+    flex: 1,
+  },
   myRankBadge: {
-    color: "#64748B",
+    color: colors.muted,
     fontSize: 12,
     fontWeight: "600",
   },
   myRankNum: {
-    color: "#F8FAFC",
+    color: colors.text,
     fontSize: 20,
     fontWeight: "900",
   },
@@ -548,32 +742,36 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: YELLOW,
+    backgroundColor: colors.primary,
     marginLeft: 12,
     alignItems: "center",
     justifyContent: "center",
   },
   myEmail: {
-    color: "#F8FAFC",
+    color: colors.text,
     fontSize: 14,
     fontWeight: "600",
   },
   tvipBadge: {
-    backgroundColor: "#F59E0B",
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1,
+    borderColor: "rgba(91,108,255,0.35)",
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 12,
     marginLeft: 8,
   },
   tvipBadgeRank: {
-    backgroundColor: "#F59E0B",
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1,
+    borderColor: "rgba(91,108,255,0.35)",
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 12,
     marginLeft: 8,
   },
   tvipText: {
-    color: "#fff",
+    color: colors.primary,
     fontSize: 10,
     fontWeight: "800",
   },
@@ -581,28 +779,28 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
   },
   earningLabel: {
-    color: "#64748B",
+    color: colors.muted,
     fontSize: 12,
   },
   earningValue: {
-    color: "#F8FAFC",
+    color: colors.text,
     fontSize: 16,
     fontWeight: "800",
     marginTop: 4,
   },
   usdt: {
     fontSize: 11,
-    color: "#94A3B8",
+    color: colors.muted,
     fontWeight: "600",
   },
   listHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 24,
+    marginTop: 20,
     marginBottom: 8,
   },
   listColText: {
-    color: "#64748B",
+    color: colors.muted,
     fontSize: 12,
     fontWeight: "600",
   },
@@ -610,38 +808,47 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    marginBottom: 8,
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   rankItemLeft: {
     flexDirection: "row",
     alignItems: "center",
+    flex: 1,
   },
-  medalBg: {
-    width: 32,
-    height: 32,
+  rankBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
   },
   medalText: {
-    color: "#1E293B",
+    color: "#fff",
     fontWeight: "900",
     fontSize: 12,
-    marginTop: -2,
   },
   avatarImg: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    marginLeft: 12,
+    borderRadius: 12,
+    marginLeft: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   rName: {
-    color: "#F8FAFC",
-    fontSize: 15,
+    color: colors.text,
+    fontSize: 14,
     fontWeight: "700",
   },
   rEarning: {
-    color: "#F8FAFC",
-    fontSize: 15,
+    color: colors.profit,
+    fontSize: 14,
     fontWeight: "800",
   },
 });
