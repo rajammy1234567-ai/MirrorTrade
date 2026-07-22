@@ -95,7 +95,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         // Validate token — hard cap so splash never hangs
         try {
-          const me = await withTimeout(meRequest(), 5000);
+          const me = await withTimeout(meRequest());
           if (cancelled) return;
           if (me.success && me.user) {
             setUser(me.user);
@@ -140,7 +140,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const login = useCallback(async (email: string, password: string) => {
     try {
-      const data = await withTimeout(loginRequest(email.trim(), password), 10000);
+      const data = await withTimeout(loginRequest(email.trim(), password));
       if (!data.success || !data.token || !data.user) {
         throw new Error(data.message || "Login failed");
       }
@@ -169,8 +169,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     ) => {
       try {
         const data = await withTimeout(
-          registerRequest(name.trim(), email.trim(), password, referralCode),
-          10000
+          registerRequest(name.trim(), email.trim(), password, referralCode)
         );
         if (!data.success || !data.token || !data.user) {
           throw new Error(data.message || "Registration failed");
@@ -208,7 +207,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const refreshUser = useCallback(async () => {
     try {
-      const me = await withTimeout(meRequest(), 5000);
+      const me = await withTimeout(meRequest());
       if (me.success && me.user) {
         setUser(me.user);
         await AsyncStorage.setItem(KEYS.user, JSON.stringify(me.user));

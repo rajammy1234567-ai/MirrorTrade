@@ -71,9 +71,9 @@ export default function ProfileScreen() {
   const load = useCallback(async () => {
     try {
       const [planRes, txRes, exRes] = await Promise.all([
-        withTimeout(getMyPlanStatusRequest(), 6000).catch(() => null),
-        withTimeout(getMyTransactionsRequest(8), 6000).catch(() => null),
-        withTimeout(listExchangesRequest(), 6000).catch(() => null),
+        withTimeout(getMyPlanStatusRequest()).catch(() => null),
+        withTimeout(getMyTransactionsRequest(8)).catch(() => null),
+        withTimeout(listExchangesRequest()).catch(() => null),
       ]);
       if (planRes?.success) setStatus(planRes.data);
       if (txRes?.success) setTxs(txRes.data);

@@ -1,36 +1,35 @@
 import axios, { type AxiosError } from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Platform } from "react-native";
+
+/** Production API (Render). Override with EXPO_PUBLIC_API_URL only for local dev. */
+export const DEFAULT_API_URL = "https://mirrortrade-api.onrender.com/api";
 
 /**
  * API base URL
- * - EXPO_PUBLIC_API_URL from .env always wins
- * - __DEV__: local server PORT=7000
- * - production: hosted API
+ * - EXPO_PUBLIC_API_URL from .env wins (use for local server if needed)
+ * - otherwise always deployed API — app should not require localhost
  */
 function resolveApiUrl() {
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL.replace(/\/$/, "");
+  const fromEnv = process.env.EXPO_PUBLIC_API_URL?.trim();
+  if (fromEnv) {
+    return fromEnv.replace(/\/$/, "");
   }
-  if (typeof __DEV__ !== "undefined" && __DEV__) {
-    if (Platform.OS === "android") {
-      return "http://10.0.2.2:7000/api";
-    }
-    return "http://localhost:7000/api";
-  }
-  return "https://mirrortrade-api.onrender.com/api";
+  return DEFAULT_API_URL;
 }
 
 export const API_URL = resolveApiUrl();
 export const TOKEN_KEY = "mt_token";
 
-/** Short timeout so UI never spins forever when server is down */
+/**
+ * Timeout: long enough for Render free-tier cold start (~30–50s),
+ * still bounded so the UI does not hang forever.
+ */
 export const api = axios.create({
   baseURL: API_URL,
   headers: {
     "Content-Type": "application/json",
   },
-  timeout: 8000,
+  timeout: 45000,
 });
 
 api.interceptors.request.use(async (config) => {
@@ -165,11 +164,16 @@ export type CapitalSnapshot = {
 
 export function getApiErrorMessage(err: unknown, fallback = "Something went wrong") {
   const ax = err as AxiosError<{ message?: string }>;
+  const isLocal = /localhost|127\.0\.0\.1|10\.0\.2\.2/.test(API_URL);
   if (ax?.code === "ECONNABORTED" || ax?.message?.includes("timeout")) {
-    return "Server timeout — is the API running on port 7000?";
+    return isLocal
+      ? "Server timeout — is mirror_trade_server running on port 7000?"
+      : "Server timeout — deployed API is slow or waking up. Retry in a few seconds.";
   }
   if (ax?.code === "ERR_NETWORK" || !ax?.response) {
-    return `Cannot reach API (${API_URL}). Start mirror_trade_server.`;
+    return isLocal
+      ? `Cannot reach API (${API_URL}). Start mirror_trade_server.`
+      : `Cannot reach API (${API_URL}). Check internet, or wait if Render free tier is waking up.`;
   }
   return ax?.response?.data?.message || (err instanceof Error ? err.message : fallback);
 }
@@ -187,8 +191,8 @@ function isRouteMissing(err: unknown) {
   return (err as AxiosError)?.response?.status === 404;
 }
 
-/** Race a promise so screens never hang past maxMs */
-export function withTimeout<T>(promise: Promise<T>, maxMs = 6000): Promise<T> {
+/** Race a promise so screens never hang past maxMs (Render cold start needs more headroom) */
+export function withTimeout<T>(promise: Promise<T>, maxMs = 50000): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const t = setTimeout(() => reject(new Error("Request timed out")), maxMs);
     promise
@@ -295,7 +299,7 @@ export async function connectExchangeRequest(payload: {
   } catch (err) {
     if (isRouteMissing(err)) {
       throw new Error(
-        "Exchange API not on this server. Use local API (port 7000) or redeploy backend."
+        "Exchange API not on this server. Redeploy the latest mirror_trade_server."
       );
     }
     throw err;
@@ -321,7 +325,7 @@ export async function syncExchangeCapitalRequest(exchange?: string) {
   } catch (err) {
     if (isRouteMissing(err)) {
       throw new Error(
-        "Capital sync not available. Start local server on port 7000."
+        "Capital sync not available on this server. Redeploy the latest mirror_trade_server."
       );
     }
     throw err;
@@ -363,4 +367,3 @@ export async function startCopyRequest(
   return data;
 }
 
-void Platform;

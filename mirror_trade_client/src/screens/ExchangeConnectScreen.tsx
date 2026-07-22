@@ -53,7 +53,7 @@ export default function ExchangeConnectScreen({ navigation }: Props) {
 
   const loadConnections = useCallback(async () => {
     try {
-      const res = await withTimeout(listExchangesRequest(), 5000);
+      const res = await withTimeout(listExchangesRequest());
       if (res.success) {
         setConnected(res.data || []);
         if ((res.data || []).length > 0) {

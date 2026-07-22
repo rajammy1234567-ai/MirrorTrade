@@ -281,9 +281,9 @@ export default function TeamRankScreen({ navigation, route }: Props) {
     setError("");
     try {
       const [planRes, txRes, exRes] = await Promise.all([
-        withTimeout(getMyPlanStatusRequest(), 6000),
-        withTimeout(getMyTransactionsRequest(20), 6000).catch(() => null),
-        withTimeout(listExchangesRequest(), 6000).catch(() => null),
+        withTimeout(getMyPlanStatusRequest()),
+        withTimeout(getMyTransactionsRequest(20)).catch(() => null),
+        withTimeout(listExchangesRequest()).catch(() => null),
       ]);
       if (planRes?.success) setStatus(planRes.data);
       if (txRes?.success) setPayouts(txRes.data);
