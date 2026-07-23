@@ -3,14 +3,16 @@ const {
   creditDeposit,
   setExchangeCapital,
 } = require("../services/capitalService");
-const generateReferralCode = require("../utils/referralCode");
+const { createUniqueReferralCode } = require("../services/referralService");
 
 const formatUser = (user) => ({
   id: user._id,
   name: user.name,
   email: user.email,
+  phone: user.phone || null,
   role: user.role,
   isActive: user.isActive,
+  isEmailVerified: Boolean(user.isEmailVerified),
   referralCode: user.referralCode || null,
   totalDeposit: user.totalDeposit || 0,
   capitalSource: user.capitalSource || "none",
@@ -19,6 +21,7 @@ const formatUser = (user) => ({
   tVipRank: user.tVipRank || "NONE",
   cVipRank: user.cVipRank || "NONE",
   walletBalance: user.walletBalance || 0,
+  referralRewardsEarned: user.referralRewardsEarned || 0,
   createdAt: user.createdAt,
 });
 
@@ -107,7 +110,7 @@ const adminDeposit = async (req, res) => {
   }
 
   if (!user.referralCode) {
-    user.referralCode = generateReferralCode();
+    user.referralCode = await createUniqueReferralCode(user.name);
     await user.save();
   }
 

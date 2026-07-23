@@ -47,13 +47,10 @@ const getMyPlanStatus = async (req, res) => {
 
   // Ensure referral code exists for older accounts
   if (!user.referralCode) {
-    const generateReferralCode = require("../utils/referralCode");
-    let code = generateReferralCode();
-    // rare collision retry
-    while (await User.findOne({ referralCode: code })) {
-      code = generateReferralCode();
-    }
-    user.referralCode = code;
+    const {
+      createUniqueReferralCode,
+    } = require("../services/referralService");
+    user.referralCode = await createUniqueReferralCode(user.name);
     await user.save();
   }
 

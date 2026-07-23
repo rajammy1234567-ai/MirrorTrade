@@ -4,6 +4,7 @@ const adminRoutes = require("./adminRoutes");
 const tradeRoutes = require("./tradeRoutes");
 const planRoutes = require("./planRoutes");
 const exchangeRoutes = require("./exchangeRoutes");
+const referralRoutes = require("./referralRoutes");
 // Payments optional — VIP capital primarily from exchange sync
 const paymentRoutes = require("./paymentRoutes");
 
@@ -14,8 +15,12 @@ const ROUTE_CATALOG = [
   { method: "GET", path: "/api/health", access: "public" },
   { method: "GET", path: "/api/routes", access: "public" },
   { method: "POST", path: "/api/auth/register", access: "public" },
+  { method: "POST", path: "/api/auth/signup", access: "public" },
   { method: "POST", path: "/api/auth/login", access: "public" },
   { method: "GET", path: "/api/auth/me", access: "private" },
+  { method: "POST", path: "/api/auth/verify", access: "private" },
+  { method: "GET", path: "/api/referrals/my-code", access: "private" },
+  { method: "GET", path: "/api/referrals/stats", access: "private" },
   { method: "GET", path: "/api/plans", access: "public" },
   { method: "GET", path: "/api/plans/me", access: "private" },
   { method: "GET", path: "/api/plans/transactions", access: "private" },
@@ -30,7 +35,14 @@ const ROUTE_CATALOG = [
   { method: "GET", path: "/api/admin/stats", access: "admin" },
   { method: "GET", path: "/api/admin/users", access: "admin" },
   { method: "POST", path: "/api/admin/users/:id/deposit", access: "admin" },
+  { method: "GET", path: "/api/trade/traders", access: "public" },
+  { method: "GET", path: "/api/trade/traders/:id", access: "public" },
   { method: "POST", path: "/api/trade/copy", access: "private" },
+  { method: "POST", path: "/api/trade/copy/:id/stop", access: "private" },
+  { method: "GET", path: "/api/trade/my-copies", access: "private" },
+  { method: "GET", path: "/api/trade/positions", access: "private" },
+  { method: "POST", path: "/api/trade/positions/:id/close", access: "private" },
+  { method: "GET", path: "/api/trade/portfolio", access: "private" },
 ];
 
 router.get("/health", (req, res) => {
@@ -52,6 +64,7 @@ router.get("/routes", (_req, res) => {
 });
 
 router.use("/auth", authRoutes);
+router.use("/referrals", referralRoutes);
 router.use("/admin", adminRoutes);
 router.use("/trade", tradeRoutes);
 router.use("/plans", planRoutes);

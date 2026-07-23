@@ -2,11 +2,11 @@ require("dotenv").config();
 
 const connectDB = require("./config/db");
 const User = require("./models/User");
-const generateReferralCode = require("./utils/referralCode");
+const { createUniqueReferralCode } = require("./services/referralService");
 
 const ensureReferralCode = async (user) => {
   if (user.referralCode) return user;
-  user.referralCode = generateReferralCode();
+  user.referralCode = await createUniqueReferralCode(user.name);
   await user.save();
   return user;
 };
@@ -27,7 +27,8 @@ const seed = async () => {
         email: adminEmail,
         password: "Admin@123",
         role: "admin",
-        referralCode: generateReferralCode(),
+        referralCode: await createUniqueReferralCode("Super Admin"),
+        isEmailVerified: true,
       });
       console.log("Admin created:");
       console.log("  Email   :", adminEmail);
@@ -46,13 +47,21 @@ const seed = async () => {
         email: demoEmail,
         password: "User@123",
         role: "user",
-        referralCode: generateReferralCode(),
+        referralCode: await createUniqueReferralCode("Demo User"),
+        isEmailVerified: true,
       });
       console.log("Demo user created:");
       console.log("  Email   :", demoEmail);
       console.log("  Password: User@123");
       console.log("  Referral:", user.referralCode);
     }
+
+    // Master traders for copy trading
+    const { ensureSeedTraders, listTraders } = require("./services/copyTradeService");
+    await ensureSeedTraders();
+    const traders = await listTraders();
+    console.log(`Copy traders ready: ${traders.length}`);
+    traders.forEach((t) => console.log(`  - ${t.name} (${t.id})`));
 
     process.exit(0);
   } catch (error) {

@@ -21,6 +21,24 @@ const userSchema = new mongoose.Schema(
       minlength: 6,
       select: false,
     },
+    /** Optional phone — used for fraud checks + future OTP */
+    phone: {
+      type: String,
+      default: null,
+      trim: true,
+      unique: true,
+      sparse: true,
+    },
+    /**
+     * Stable device fingerprint from the client (AsyncStorage UUID on Expo).
+     * Used to block multi-account referral farming on one device.
+     */
+    deviceId: {
+      type: String,
+      default: null,
+      trim: true,
+      index: true,
+    },
     role: {
       type: String,
       enum: ["user", "admin"],
@@ -30,15 +48,38 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    /** Email verified (demo OTP or real provider later) */
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    /** Phone verified (Twilio / Firebase OTP later) */
+    isPhoneVerified: {
+      type: Boolean,
+      default: false,
+    },
+    /** When the user first completed verification */
+    verifiedAt: {
+      type: Date,
+      default: null,
+    },
     referredBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       default: null,
     },
+    /** This user's own shareable code (e.g. AM4729) */
     referralCode: {
       type: String,
       unique: true,
       sparse: true,
+      uppercase: true,
+      trim: true,
+    },
+    /** Lifetime referral rewards credited to this wallet */
+    referralRewardsEarned: {
+      type: Number,
+      default: 0,
     },
     /**
      * Exchange capital used for VIP levels (NOT in-app wallet deposit).
@@ -69,7 +110,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "NONE",
     },
-    /** Platform earnings (bonuses / profit share), not exchange balance */
+    /** Platform earnings (bonuses / profit share / referral rewards) */
     walletBalance: {
       type: Number,
       default: 0,

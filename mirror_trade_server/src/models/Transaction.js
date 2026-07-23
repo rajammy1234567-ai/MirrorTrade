@@ -22,6 +22,7 @@ const transactionSchema = new mongoose.Schema(
         "T_VIP_PROFIT_SHARE",
         "SAME_LEVEL_BONUS",
         "GLOBAL_DEV_BONUS",
+        "REFERRAL_REWARD",
         "WITHDRAWAL",
       ],
       required: true,

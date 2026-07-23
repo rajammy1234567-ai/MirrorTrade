@@ -105,7 +105,13 @@ export default function AuthScreen({ navigation }: Props) {
       if (tab === "login") {
         await login(email.trim(), password);
       } else {
-        await register(name.trim(), email.trim(), password, referralCode);
+        await register(
+          name.trim(),
+          email.trim(),
+          password,
+          referralCode,
+          phone
+        );
       }
       navigation.replace("TwoFA");
     } catch (err) {
@@ -214,8 +220,8 @@ export default function AuthScreen({ navigation }: Props) {
                 />
                 <AuthInput
                   icon="gift-outline"
-                  label="Referral code"
-                  placeholder="MT-XXXXXX (optional)"
+                  label="Referral code (optional)"
+                  placeholder="e.g. AM4729"
                   value={referralCode}
                   onChangeText={setReferralCode}
                   autoCapitalize="characters"

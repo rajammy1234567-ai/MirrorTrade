@@ -1,16 +1,37 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { Pressable, StyleSheet, Text, View, ScrollView, Image, ImageBackground } from "react-native";
+import React, { useCallback, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
+} from "react-native";
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { LinearGradient } from "expo-linear-gradient";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../context/AuthContext";
 import { RootStackParamList } from "../navigation/types";
-import { traders } from "../data/mock";
+import {
+  listTradersRequest,
+  type ApiTrader,
+} from "../config/api";
+import {
+  loadInvitePayload,
+  shareMyInvite,
+  type InvitePayload,
+} from "../utils/shareInvite";
 
-const APP_BG = "#1A1B26"; // Rich midnight dark theme from reference
-const CARD_BG = "#242633"; // Slightly lighter for cards
+const APP_BG = "#1A1B26";
+const CARD_BG = "#242633";
+const CARD_BORDER = "#2E3142";
 const YELLOW = "#FFD143";
+const MUTED = "#94A3B8";
+const TEXT = "#F8FAFC";
+const DIRECT_TARGET = 3;
 
 const gridActions = [
   { label: "VIP Plans", icon: "crown", route: "TeamRank" },
@@ -24,129 +45,270 @@ const gridActions = [
 ];
 
 export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
   const { user, refreshUser } = useAuth();
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const tabNav = useNavigation<any>();
 
-  const [activeMainTab, setActiveMainTab] = useState("Profit");
-  const [activeSubTab, setActiveSubTab] = useState("Automated");
-  const [activeFilter, setActiveFilter] = useState("90 Days");
+  const [invite, setInvite] = useState<InvitePayload | null>(null);
+  const [sharing, setSharing] = useState(false);
+  const [traders, setTraders] = useState<ApiTrader[]>([]);
 
-  const [timeLeft, setTimeLeft] = useState({ h: 14, m: 21, s: 39 });
+  const goRoot = useCallback(
+    (screen: keyof RootStackParamList, params?: object) => {
+      const parent = navigation.getParent?.() as
+        | { navigate: (name: string, p?: object) => void }
+        | undefined;
+      if (parent?.navigate) {
+        parent.navigate(screen, params);
+        return;
+      }
+      (navigation.navigate as (name: string, p?: object) => void)(
+        screen,
+        params
+      );
+    },
+    [navigation]
+  );
 
-  // Keep T-VIP / C-VIP badges in sync after deposits / team changes
+  const openInviteScreen = useCallback(() => {
+    if (!user) {
+      Alert.alert("Login required", "Sign in to invite friends and earn rewards.");
+      goRoot("Auth");
+      return;
+    }
+    goRoot("Referral");
+  }, [user, goRoot]);
+
+  const handleShareInvite = useCallback(async () => {
+    if (!user) {
+      Alert.alert("Login required", "Sign in to get your referral code.");
+      goRoot("Auth");
+      return;
+    }
+    setSharing(true);
+    try {
+      const payload = await shareMyInvite(user.referralCode);
+      if (payload) setInvite(payload);
+    } catch (e) {
+      Alert.alert(
+        "Share failed",
+        e instanceof Error ? e.message : "Could not open share sheet"
+      );
+    } finally {
+      setSharing(false);
+    }
+  }, [user, goRoot]);
+
   useFocusEffect(
     useCallback(() => {
       refreshUser().catch(() => undefined);
-    }, [refreshUser])
+      if (user) {
+        loadInvitePayload(user.referralCode)
+          .then(setInvite)
+          .catch(() => undefined);
+      }
+      listTradersRequest({ sort: "roi" })
+        .then((res) => {
+          if (res.success) setTraders((res.data || []).slice(0, 4));
+        })
+        .catch(() => undefined);
+    }, [refreshUser, user])
   );
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        let { h, m, s } = prev;
-        if (s > 0) s--;
-        else {
-          s = 59;
-          if (m > 0) m--;
-          else {
-            m = 59;
-            h = h > 0 ? h - 1 : 23;
-          }
-        }
-        return { h, m, s };
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const pad = (n: number) => n.toString().padStart(2, "0");
-
-  const topTraders = traders.slice(0, 3).map((t, index) => ({
-    ...t,
-    rank: index + 1,
-    earning: (t.roi30d * 125).toLocaleString(undefined, { minimumFractionDigits: 2 }),
-    vip: `T-VIP${6 - index}`,
-    flag: ["🇷🇼", "🇮🇩", "🇺🇸"][index % 3],
-    avatarImg: `https://i.pravatar.cc/100?u=${t.id}`,
-  }));
-
-  const handleAction = (item: any) => {
-    if (item.route) navigation.navigate(item.route as any);
+  const handleAction = (item: (typeof gridActions)[number]) => {
+    if (item.route === "Referral") {
+      openInviteScreen();
+      return;
+    }
+    if (item.route) goRoot(item.route as keyof RootStackParamList);
     else if (item.tab) tabNav.navigate(item.tab);
   };
 
+  const reward = invite?.rewardPerUser ?? 50;
+  const completed = invite?.stats?.completed ?? 0;
+  const totalInvites = invite?.stats?.totalInvites ?? 0;
+  const progressCount = Math.min(DIRECT_TARGET, completed || totalInvites);
+  const progressPct = Math.min(100, (progressCount / DIRECT_TARGET) * 100);
+  const codeLabel = invite?.referralCode || user?.referralCode || "—";
+  const rewardsEarned = invite?.stats?.rewardsEarned ?? 0;
+
   return (
-    <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        
+    <View style={[styles.container, { paddingTop: Math.max(insets.top, 12) }]}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         {/* TOP NAV */}
         <View style={styles.topNav}>
-          <Pressable style={styles.profileIconWrap} onPress={() => tabNav.navigate("Profile")}>
-            <Ionicons name="person" size={18} color="#fff" />
+          <Pressable
+            style={styles.profileIconWrap}
+            onPress={() => tabNav.navigate("Profile")}
+          >
+            <Ionicons name="person" size={18} color={APP_BG} />
           </Pressable>
+          <Text style={styles.brand}>MirrorTrade</Text>
           <View style={styles.topNavRight}>
-            <Pressable style={styles.navIcon}><Ionicons name="paper-plane-outline" size={24} color="#fff" /></Pressable>
-            <Pressable style={styles.navIcon}><Ionicons name="time-outline" size={26} color="#fff" /></Pressable>
-            <Pressable style={styles.navIcon} onPress={() => navigation.navigate("Notifications")}>
-              <Ionicons name="notifications-outline" size={26} color="#fff" />
+            <Pressable
+              style={styles.navIcon}
+              onPress={handleShareInvite}
+              disabled={sharing}
+              hitSlop={8}
+            >
+              {sharing ? (
+                <ActivityIndicator size="small" color={TEXT} />
+              ) : (
+                <Ionicons name="paper-plane-outline" size={22} color={TEXT} />
+              )}
+            </Pressable>
+            <Pressable
+              style={styles.navIcon}
+              onPress={() => goRoot("Notifications")}
+              hitSlop={8}
+            >
+              <Ionicons name="notifications-outline" size={22} color={TEXT} />
             </Pressable>
           </View>
         </View>
 
-        {/* INVITE BANNER */}
-        <Pressable onPress={() => navigation.navigate("Referral")}>
-          <View style={styles.inviteBanner}>
-            <View style={styles.inviteLeft}>
-              <Image source={{uri: "https://cdn-icons-png.flaticon.com/512/4213/4213958.png"}} style={styles.giftIcon} />
-              <View>
-                <Text style={styles.inviteText}>Invite 3 Direct Members</Text>
-                <Text style={styles.inviteBonus}>+₹10</Text>
-              </View>
+        {/* INVITE CARD */}
+        <View style={styles.inviteCard}>
+          <LinearGradient
+            colors={["rgba(255,209,67,0.14)", "rgba(36,38,51,0)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+
+          <View style={styles.inviteTop}>
+            <View style={styles.inviteIconWrap}>
+              <Ionicons name="gift" size={22} color={YELLOW} />
             </View>
-            <View style={styles.inviteBtn}>
-              <Text style={styles.inviteBtnText}>Invite Now</Text>
+            <View style={styles.inviteHeadText}>
+              <Text style={styles.inviteTitle}>Invite & Earn</Text>
+              <Text style={styles.inviteSub}>
+                Get ₹{reward} for every friend who joins & verifies
+              </Text>
             </View>
           </View>
-        </Pressable>
 
-        {/* VIP CARDS — C-VIP (team) & T-VIP (personal deposit) */}
+          <View style={styles.progressBlock}>
+            <View style={styles.progressLabels}>
+              <Text style={styles.progressLabel}>
+                Direct invites {progressCount}/{DIRECT_TARGET}
+              </Text>
+              <Text style={styles.progressEarned}>
+                Earned ₹{Number(rewardsEarned).toLocaleString("en-IN")}
+              </Text>
+            </View>
+            <View style={styles.progressTrack}>
+              <View
+                style={[styles.progressFill, { width: `${progressPct}%` }]}
+              />
+            </View>
+          </View>
+
+          <View style={styles.codeRow}>
+            <View style={styles.codeChip}>
+              <Text style={styles.codeHint}>Your code</Text>
+              <Text style={styles.codeValue} numberOfLines={1}>
+                {codeLabel}
+              </Text>
+            </View>
+            <Pressable
+              style={styles.codeAction}
+              onPress={openInviteScreen}
+              hitSlop={6}
+            >
+              <Ionicons name="open-outline" size={16} color={YELLOW} />
+            </Pressable>
+          </View>
+
+          <View style={styles.inviteActions}>
+            <Pressable
+              style={[styles.shareBtn, sharing && { opacity: 0.75 }]}
+              onPress={handleShareInvite}
+              disabled={sharing}
+            >
+              {sharing ? (
+                <ActivityIndicator size="small" color="#111" />
+              ) : (
+                <>
+                  <Ionicons name="share-social" size={16} color="#111" />
+                  <Text style={styles.shareBtnText}>Share Invite</Text>
+                </>
+              )}
+            </Pressable>
+            <Pressable style={styles.detailsBtn} onPress={openInviteScreen}>
+              <Text style={styles.detailsBtnText}>Details</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {/* VIP ENTRY */}
         <View style={styles.vipRow}>
           <Pressable
-            style={{ flex: 1 }}
-            onPress={() => navigation.navigate("TeamRank", { focus: "C-VIP" })}
+            style={styles.vipPress}
+            onPress={() => goRoot("TeamRank", { focus: "C-VIP" })}
           >
-            <LinearGradient colors={["#DEB887", "#B8860B"]} start={{x:0,y:0}} end={{x:1,y:1}} style={styles.vipCard}>
-              <MaterialCommunityIcons name="crown" size={20} color="#fff" style={styles.vipIcon} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.vipText}>C-VIP</Text>
-                <Text style={styles.vipSub} numberOfLines={1}>
-                  {user?.cVipRank && user.cVipRank !== "NONE" ? user.cVipRank : "Team rank"}
+            <LinearGradient
+              colors={["#3A3428", "#2A261C"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.vipCard}
+            >
+              <MaterialCommunityIcons name="crown-outline" size={20} color={YELLOW} />
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={styles.vipLabel}>C-VIP</Text>
+                <Text style={styles.vipValue} numberOfLines={1}>
+                  {user?.cVipRank && user.cVipRank !== "NONE"
+                    ? user.cVipRank
+                    : "Team rank"}
                 </Text>
               </View>
+              <Ionicons name="chevron-forward" size={16} color={MUTED} />
             </LinearGradient>
           </Pressable>
           <Pressable
-            style={{ flex: 1 }}
-            onPress={() => navigation.navigate("TeamRank", { focus: "T-VIP" })}
+            style={styles.vipPress}
+            onPress={() => goRoot("TeamRank", { focus: "T-VIP" })}
           >
-            <LinearGradient colors={["#FFD700", "#FF8C00"]} start={{x:0,y:0}} end={{x:1,y:1}} style={styles.vipCard}>
-              <MaterialCommunityIcons name="diamond-stone" size={20} color="#fff" style={styles.vipIcon} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.vipText}>T-VIP</Text>
-                <Text style={styles.vipSub} numberOfLines={1}>
-                  {user?.tVipRank && user.tVipRank !== "NONE" ? user.tVipRank : "Deposit rank"}
+            <LinearGradient
+              colors={["#3A3428", "#2A261C"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.vipCard}
+            >
+              <MaterialCommunityIcons
+                name="diamond-stone"
+                size={20}
+                color={YELLOW}
+              />
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={styles.vipLabel}>T-VIP</Text>
+                <Text style={styles.vipValue} numberOfLines={1}>
+                  {user?.tVipRank && user.tVipRank !== "NONE"
+                    ? user.tVipRank
+                    : "Deposit rank"}
                 </Text>
               </View>
+              <Ionicons name="chevron-forward" size={16} color={MUTED} />
             </LinearGradient>
           </Pressable>
         </View>
 
-        {/* GRID MENU */}
+        {/* GRID */}
         <View style={styles.grid}>
           {gridActions.map((item, i) => (
-            <Pressable key={i} style={styles.gridItem} onPress={() => handleAction(item)}>
-              <FontAwesome5 name={item.icon} size={22} color="#E2E8F0" />
+            <Pressable
+              key={i}
+              style={styles.gridItem}
+              onPress={() => handleAction(item)}
+            >
+              <View style={styles.gridIcon}>
+                <FontAwesome5 name={item.icon} size={18} color={TEXT} />
+              </View>
               <Text style={styles.gridLabel}>{item.label}</Text>
             </Pressable>
           ))}
@@ -154,119 +316,56 @@ export default function HomeScreen() {
 
         {/* ANNOUNCEMENT */}
         <View style={styles.announcement}>
-          <Ionicons name="volume-medium-outline" size={20} color="#94A3B8" />
-          <Text style={styles.announceText}>MirrorTrade analyzes market trends for you.</Text>
-          <Ionicons name="menu-outline" size={22} color="#94A3B8" />
+          <Ionicons name="volume-medium-outline" size={18} color={MUTED} />
+          <Text style={styles.announceText}>
+            MirrorTrade analyzes market trends for you.
+          </Text>
         </View>
 
-        {/* RANKING SECTION WITH TROPHY BG */}
-        <View style={styles.rankingContainer}>
-          {/* Trophy Background Image */}
-          <Image 
-            source={{uri: "https://cdn-icons-png.flaticon.com/512/3176/3176294.png"}} 
-            style={styles.trophyBg} 
-            resizeMode="contain"
-          />
-
-          <Text style={styles.rankingTitle}>Ranking</Text>
-
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rankingTabs}>
-            {["Profit", "Commission", "Rewards", "Points", "S-Vol"].map(tab => (
-              <Pressable key={tab} onPress={() => setActiveMainTab(tab)} style={styles.rTabBtn}>
-                <Text style={[styles.rTab, activeMainTab === tab && styles.rTabActive]}>{tab}</Text>
-                {activeMainTab === tab && <View style={styles.rTabIndicator} />}
-              </Pressable>
-            ))}
-            <Ionicons name="settings-outline" size={18} color="#94A3B8" style={{marginLeft: 10}}/>
-          </ScrollView>
-
-          {/* SUB TABS */}
-          <View style={styles.subTabsWrap}>
-            <View style={styles.subTabs}>
-              {["Automated", "Signal", "Manual"].map(tab => (
-                <Pressable key={tab} style={[styles.subTab, activeSubTab === tab && styles.subTabActive]} onPress={() => setActiveSubTab(tab)}>
-                  <Text style={[styles.subTabText, activeSubTab === tab && styles.subTabTextActive]}>{tab}</Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-          
-          <Text style={styles.infoText}>Automated data includes both AI Brain and KOL Brain.</Text>
-
-          {/* PILL FILTERS */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterPills}>
-            {["90 Days", "30 Days", "15 Days", "1 Day"].map(filter => (
-              <Pressable key={filter} style={[styles.pill, activeFilter === filter && styles.pillActive]} onPress={() => setActiveFilter(filter)}>
-                <Text style={[styles.pillText, activeFilter === filter && styles.pillTextActive]}>{filter}</Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-
-          <Text style={styles.updateText}>Next Ranking update: {pad(timeLeft.h)} : {pad(timeLeft.m)} : {pad(timeLeft.s)}</Text>
-
-          {/* MY RANKING */}
-          <View style={styles.myRankingCard}>
-            <View style={styles.myRankLeft}>
-              <View style={{flexDirection: "row", alignItems: "center"}}>
-                <Text style={styles.myRankBadge}>My Ranking</Text>
-                <Ionicons name="help-circle-outline" size={14} color="#94A3B8" style={{marginLeft:4}} />
-              </View>
-              <View style={{flexDirection: "row", alignItems: "center", marginTop: 10}}>
-                <Text style={styles.myRankNum}>50+</Text>
-                <View style={styles.coinIcon}><Text style={{color:"#fff", fontWeight:"bold", fontSize: 18}}>₹</Text></View>
-                <View style={{marginLeft: 12}}>
-                  <Text style={styles.myEmail}>{user?.email?.replace(/(.{2})(.*)(@.*)/, "$1***$3") || "ku***@gmail.com"}</Text>
-                  <View style={{flexDirection: "row", alignItems: "center", marginTop: 4}}>
-                    <Text style={{fontSize: 12}}>🇮🇳</Text>
-                    <View style={styles.tvipBadge}>
-                      <Text style={styles.tvipText}>
-                        {user?.tVipRank && user.tVipRank !== "NONE"
-                          ? user.tVipRank
-                          : "T-VIP"}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              </View>
-            </View>
-            <View style={styles.myRankRight}>
-              <Text style={styles.earningLabel}>Earning</Text>
-              <Text style={styles.earningValue}>0.00 <Text style={styles.usdt}>INR</Text></Text>
-            </View>
-          </View>
-
-          {/* LIST HEADER */}
-          <View style={styles.listHeader}>
-            <Text style={styles.listColText}>Profit Ranking</Text>
-            <Text style={styles.listColText}>Earning</Text>
-          </View>
-
-          {/* LIST ITEMS */}
-          {topTraders.map((r, i) => (
-            <Pressable key={r.id} style={styles.rankItem} onPress={() => navigation.navigate("TraderDetail", { traderId: r.id })}>
-              <View style={styles.rankItemLeft}>
-                <ImageBackground 
-                  source={{ uri: i === 0 ? "https://cdn-icons-png.flaticon.com/512/744/744922.png" : i === 1 ? "https://cdn-icons-png.flaticon.com/512/744/744984.png" : "https://cdn-icons-png.flaticon.com/512/744/744986.png" }}
-                  style={styles.medalBg}
-                  imageStyle={{tintColor: i===0?"#FFD700":i===1?"#C0C0C0":"#CD7F32"}}
-                >
-                  <Text style={styles.medalText}>{r.rank}</Text>
-                </ImageBackground>
-                <Image source={{ uri: r.avatarImg }} style={styles.avatarImg} />
-                <View style={{marginLeft: 12}}>
-                  <Text style={styles.rName}>{r.name}</Text>
-                  <View style={{flexDirection: "row", alignItems: "center", marginTop: 4}}>
-                    <Text style={{fontSize: 12}}>{r.flag}</Text>
-                    <View style={styles.tvipBadgeRank}>
-                      <Text style={styles.tvipText}>{r.vip}</Text>
-                    </View>
-                  </View>
-                </View>
-              </View>
-              <Text style={styles.rEarning}>+₹{r.earning} <Text style={styles.usdt}>INR</Text></Text>
+        {/* TOP TRADERS — clean list, no ranking medals/badges */}
+        <View style={styles.section}>
+          <View style={styles.sectionHead}>
+            <Text style={styles.sectionTitle}>Top traders</Text>
+            <Pressable onPress={() => tabNav.navigate("Discover")}>
+              <Text style={styles.sectionLink}>See all</Text>
             </Pressable>
-          ))}
-          
+          </View>
+
+          {traders.length === 0 ? (
+            <View style={styles.emptyTraders}>
+              <Text style={styles.emptyText}>Loading traders…</Text>
+            </View>
+          ) : (
+            traders.map((t) => (
+              <Pressable
+                key={t.id}
+                style={styles.traderRow}
+                onPress={() => goRoot("TraderDetail", { traderId: t.id })}
+              >
+                <View style={styles.traderAvatar}>
+                  <Text style={styles.traderAvatarText}>{t.avatar}</Text>
+                </View>
+                <View style={styles.traderMid}>
+                  <Text style={styles.traderName}>{t.name}</Text>
+                  <Text style={styles.traderMeta}>
+                    {t.winRate}% win · {t.copiers} copiers
+                  </Text>
+                </View>
+                <View style={styles.traderRight}>
+                  <Text
+                    style={[
+                      styles.traderRoi,
+                      { color: t.roi30d >= 0 ? "#22C55E" : "#FF3B5C" },
+                    ]}
+                  >
+                    {t.roi30d >= 0 ? "+" : ""}
+                    {t.roi30d}%
+                  </Text>
+                  <Text style={styles.traderRoiHint}>30D</Text>
+                </View>
+              </Pressable>
+            ))
+          )}
         </View>
       </ScrollView>
     </View>
@@ -277,122 +376,249 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: APP_BG,
-    paddingTop: 45, // Safe area approx
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: 36,
   },
   topNav: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 20,
+    paddingTop: 6,
+    paddingBottom: 14,
   },
   profileIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: "#CBD5E1",
     alignItems: "center",
     justifyContent: "center",
   },
+  brand: {
+    color: TEXT,
+    fontSize: 16,
+    fontWeight: "800",
+    letterSpacing: -0.3,
+  },
   topNavRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 16,
+    gap: 14,
+    minWidth: 36,
+    justifyContent: "flex-end",
   },
   navIcon: {
     padding: 2,
   },
-  inviteBanner: {
+
+  /* Invite */
+  inviteCard: {
     marginHorizontal: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "rgba(255,209,67,0.22)",
     backgroundColor: CARD_BG,
-    borderRadius: 12,
-    padding: 14,
+    padding: 16,
+    overflow: "hidden",
+  },
+  inviteTop: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  inviteIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: "rgba(255,209,67,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255,209,67,0.25)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  inviteHeadText: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  inviteTitle: {
+    color: TEXT,
+    fontSize: 17,
+    fontWeight: "800",
+  },
+  inviteSub: {
+    marginTop: 3,
+    color: MUTED,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  progressBlock: {
+    marginTop: 16,
+  },
+  progressLabels: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    marginBottom: 8,
   },
-  inviteLeft: {
+  progressLabel: {
+    color: MUTED,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  progressEarned: {
+    color: YELLOW,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  progressTrack: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 3,
+    backgroundColor: YELLOW,
+  },
+  codeRow: {
+    marginTop: 14,
     flexDirection: "row",
     alignItems: "center",
+    gap: 8,
   },
-  giftIcon: {
-    width: 40, 
-    height: 40, 
-    marginRight: 12
+  codeChip: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: CARD_BORDER,
+    backgroundColor: "rgba(0,0,0,0.22)",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
-  inviteText: {
-    color: "#CBD5E1",
-    fontSize: 13,
+  codeHint: {
+    color: MUTED,
+    fontSize: 10,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
   },
-  inviteBonus: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "900",
-    marginTop: 2,
-  },
-  inviteBtn: {
-    backgroundColor: YELLOW,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
-  },
-  inviteBtnText: {
-    color: "#000",
+  codeValue: {
+    marginTop: 3,
+    color: TEXT,
+    fontSize: 16,
     fontWeight: "800",
+    letterSpacing: 1.2,
+  },
+  codeAction: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: CARD_BORDER,
+    backgroundColor: "rgba(255,209,67,0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  inviteActions: {
+    marginTop: 14,
+    flexDirection: "row",
+    gap: 10,
+  },
+  shareBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: YELLOW,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  shareBtnText: {
+    color: "#111",
+    fontWeight: "800",
+    fontSize: 14,
+  },
+  detailsBtn: {
+    height: 44,
+    paddingHorizontal: 18,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: CARD_BORDER,
+    backgroundColor: "rgba(255,255,255,0.03)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  detailsBtnText: {
+    color: TEXT,
+    fontWeight: "700",
     fontSize: 13,
   },
+
+  /* VIP */
   vipRow: {
     flexDirection: "row",
     paddingHorizontal: 16,
-    marginTop: 20,
-    justifyContent: "space-between",
+    marginTop: 16,
+    gap: 10,
+  },
+  vipPress: {
+    flex: 1,
   },
   vipCard: {
-    flex: 1,
     flexDirection: "row",
-    height: 65,
-    borderRadius: 12,
-    marginHorizontal: 4,
     alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255,209,67,0.18)",
   },
-  vipIcon: {
-    opacity: 0.8,
+  vipLabel: {
+    color: MUTED,
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.4,
   },
-  vipText: {
-    color: "#fff",
-    fontWeight: "900",
-    fontSize: 16,
-    fontStyle: "italic",
+  vipValue: {
+    color: TEXT,
+    fontSize: 13,
+    fontWeight: "800",
+    marginTop: 2,
   },
-  vipSub: {
-    color: "rgba(255,255,255,0.85)",
-    fontSize: 10,
-    fontWeight: "600",
-    marginTop: 1,
-  },
+
+  /* Grid */
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    paddingHorizontal: 8,
-    marginTop: 24,
+    paddingHorizontal: 10,
+    marginTop: 20,
   },
   gridItem: {
     width: "25%",
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: 18,
+  },
+  gridIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: CARD_BG,
+    borderWidth: 1,
+    borderColor: CARD_BORDER,
+    alignItems: "center",
+    justifyContent: "center",
   },
   gridLabel: {
-    color: "#F8FAFC",
-    fontSize: 12,
-    marginTop: 10,
+    color: "#E2E8F0",
+    fontSize: 11,
+    marginTop: 8,
     fontWeight: "600",
+    textAlign: "center",
+    paddingHorizontal: 2,
   },
+
   announcement: {
     flexDirection: "row",
     alignItems: "center",
@@ -400,248 +626,94 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    borderRadius: 8,
-    justifyContent: "space-between",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: CARD_BORDER,
+    gap: 10,
   },
   announceText: {
-    color: "#CBD5E1",
+    color: MUTED,
     fontSize: 13,
     flex: 1,
-    marginLeft: 12,
   },
-  rankingContainer: {
-    marginTop: 24,
+
+  /* Traders */
+  section: {
+    marginTop: 22,
     paddingHorizontal: 16,
-    position: "relative",
   },
-  trophyBg: {
-    position: "absolute",
-    right: -20,
-    top: 20,
-    width: 200,
-    height: 200,
-    opacity: 0.1,
-    zIndex: -1,
-  },
-  rankingTitle: {
-    color: "#D4AF37", // A darker gold text for Ranking
-    fontSize: 32,
-    fontWeight: "900",
-    fontStyle: "italic",
-    textShadowColor: "rgba(212, 175, 55, 0.4)",
-    textShadowOffset: {width: 0, height: 2},
-    textShadowRadius: 10,
-  },
-  rankingTabs: {
+  sectionHead: {
     flexDirection: "row",
-    alignItems: "flex-end",
-    marginTop: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#334155",
-  },
-  rTabBtn: {
-    marginRight: 24,
-    position: "relative",
-    paddingBottom: 10,
-  },
-  rTab: {
-    color: "#94A3B8",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  rTabActive: {
-    color: "#fff",
-  },
-  rTabIndicator: {
-    position: "absolute",
-    bottom: -1,
-    left: 0,
-    right: 0,
-    height: 3,
-    backgroundColor: YELLOW,
-    borderRadius: 2,
-  },
-  subTabsWrap: {
-    marginTop: 16,
     alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
   },
-  subTabs: {
-    flexDirection: "row",
-    backgroundColor: "rgba(255,255,255,0.03)",
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#334155",
-    width: "100%",
-  },
-  subTab: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: "center",
-    borderRadius: 20,
-  },
-  subTabActive: {
-    backgroundColor: YELLOW,
-  },
-  subTabText: {
-    color: "#94A3B8",
-    fontWeight: "700",
-    fontSize: 13,
-  },
-  subTabTextActive: {
-    color: "#000",
+  sectionTitle: {
+    color: TEXT,
+    fontSize: 17,
     fontWeight: "800",
-    fontSize: 13,
   },
-  infoText: {
-    color: "#64748B",
-    fontSize: 12,
-    marginTop: 14,
-  },
-  filterPills: {
-    flexDirection: "row",
-    marginTop: 16,
-  },
-  pill: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginRight: 10,
-    backgroundColor: "transparent",
-  },
-  pillActive: {
-    backgroundColor: "#F1F5F9",
-  },
-  pillText: {
-    color: "#64748B",
+  sectionLink: {
+    color: YELLOW,
     fontSize: 13,
     fontWeight: "700",
   },
-  pillTextActive: {
-    color: "#0F172A",
+  emptyTraders: {
+    paddingVertical: 20,
+    alignItems: "center",
   },
-  updateText: {
-    color: "#64748B",
-    fontSize: 12,
-    marginTop: 14,
+  emptyText: {
+    color: MUTED,
+    fontSize: 13,
   },
-  myRankingCard: {
+  traderRow: {
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: CARD_BG,
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 16,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  myRankLeft: {},
-  myRankBadge: {
-    color: "#64748B",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  myRankNum: {
-    color: "#F8FAFC",
-    fontSize: 20,
-    fontWeight: "900",
-  },
-  coinIcon: {
-    width: 28,
-    height: 28,
     borderRadius: 14,
-    backgroundColor: YELLOW,
-    marginLeft: 12,
+    borderWidth: 1,
+    borderColor: CARD_BORDER,
+    padding: 12,
+    marginBottom: 10,
+  },
+  traderAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: "rgba(255,209,67,0.12)",
     alignItems: "center",
     justifyContent: "center",
   },
-  myEmail: {
-    color: "#F8FAFC",
+  traderAvatarText: {
+    color: YELLOW,
+    fontWeight: "800",
+    fontSize: 13,
+  },
+  traderMid: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  traderName: {
+    color: TEXT,
     fontSize: 14,
-    fontWeight: "600",
-  },
-  tvipBadge: {
-    backgroundColor: "#F59E0B",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-    marginLeft: 8,
-  },
-  tvipBadgeRank: {
-    backgroundColor: "#F59E0B",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-    marginLeft: 8,
-  },
-  tvipText: {
-    color: "#fff",
-    fontSize: 10,
-    fontWeight: "800",
-  },
-  myRankRight: {
-    alignItems: "flex-end",
-  },
-  earningLabel: {
-    color: "#64748B",
-    fontSize: 12,
-  },
-  earningValue: {
-    color: "#F8FAFC",
-    fontSize: 16,
-    fontWeight: "800",
-    marginTop: 4,
-  },
-  usdt: {
-    fontSize: 11,
-    color: "#94A3B8",
-    fontWeight: "600",
-  },
-  listHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 24,
-    marginBottom: 8,
-  },
-  listColText: {
-    color: "#64748B",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  rankItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 14,
-  },
-  rankItemLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  medalBg: {
-    width: 32,
-    height: 32,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  medalText: {
-    color: "#1E293B",
-    fontWeight: "900",
-    fontSize: 12,
-    marginTop: -2,
-  },
-  avatarImg: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    marginLeft: 12,
-  },
-  rName: {
-    color: "#F8FAFC",
-    fontSize: 15,
     fontWeight: "700",
   },
-  rEarning: {
-    color: "#F8FAFC",
-    fontSize: 15,
+  traderMeta: {
+    marginTop: 3,
+    color: MUTED,
+    fontSize: 12,
+  },
+  traderRight: {
+    alignItems: "flex-end",
+  },
+  traderRoi: {
+    fontSize: 14,
     fontWeight: "800",
+  },
+  traderRoiHint: {
+    marginTop: 2,
+    color: MUTED,
+    fontSize: 10,
+    fontWeight: "600",
   },
 });

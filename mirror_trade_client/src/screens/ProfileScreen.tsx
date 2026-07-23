@@ -189,12 +189,36 @@ export default function ProfileScreen() {
     {
       icon: "qr-code-outline",
       label: "Invite",
-      onPress: () => navigation.navigate("Referral"),
+      onPress: () => {
+        // Assets tab → Invite & Earn (root stack)
+        const parent = navigation.getParent?.();
+        if (parent) parent.navigate("Referral" as never);
+        else navigation.navigate("Referral");
+      },
+    },
+    {
+      icon: "share-social-outline",
+      label: "Share",
+      onPress: async () => {
+        try {
+          const { shareMyInvite } = await import("../utils/shareInvite");
+          await shareMyInvite(user?.referralCode);
+        } catch (e) {
+          Alert.alert(
+            "Share failed",
+            e instanceof Error ? e.message : "Could not share invite"
+          );
+        }
+      },
     },
     {
       icon: "star-outline",
       label: "VIP",
-      onPress: () => navigation.navigate("TeamRank"),
+      onPress: () => {
+        const parent = navigation.getParent?.();
+        if (parent) parent.navigate("TeamRank" as never);
+        else navigation.navigate("TeamRank");
+      },
     },
   ];
 

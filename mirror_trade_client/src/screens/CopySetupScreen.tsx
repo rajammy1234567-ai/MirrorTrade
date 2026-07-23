@@ -1,12 +1,27 @@
-import React, { useState } from "react";
-import { Alert, Pressable, StyleSheet, Switch, Text, View } from "react-native";
+import React, { useCallback, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import Screen from "../components/Screen";
 import GradientButton from "../components/GradientButton";
 import RangeSlider from "../components/RangeSlider";
 import PnlText from "../components/PnlText";
-import { traders } from "../data/mock";
+import {
+  getApiErrorMessage,
+  getTraderRequest,
+  startCopyRequest,
+  type ApiTrader,
+} from "../config/api";
+import { useAuth } from "../context/AuthContext";
 import { useAppData } from "../context/AppDataContext";
 import { RootStackParamList } from "../navigation/types";
 import { colors } from "../theme/colors";
@@ -14,13 +29,108 @@ import { colors } from "../theme/colors";
 type Props = NativeStackScreenProps<RootStackParamList, "CopySetup">;
 
 export default function CopySetupScreen({ route, navigation }: Props) {
-  const trader = traders.find((t) => t.id === route.params.traderId) || traders[0];
+  const { user } = useAuth();
   const { startCopy } = useAppData();
+  const [trader, setTrader] = useState<ApiTrader | null>(null);
+  const [loadingTrader, setLoadingTrader] = useState(true);
   const [amount, setAmount] = useState(500);
   const [maxDd, setMaxDd] = useState(20);
   const [multiplier, setMultiplier] = useState(1);
-  const [copyOpen, setCopyOpen] = useState(false);
+  const [copyOpen, setCopyOpen] = useState(true);
   const [loading, setLoading] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      (async () => {
+        setLoadingTrader(true);
+        try {
+          const res = await getTraderRequest(route.params.traderId);
+          if (alive && res.success) setTrader(res.data);
+        } catch {
+          if (alive) setTrader(null);
+        } finally {
+          if (alive) setLoadingTrader(false);
+        }
+      })();
+      return () => {
+        alive = false;
+      };
+    }, [route.params.traderId])
+  );
+
+  const onStart = async () => {
+    if (!user) {
+      Alert.alert("Login required", "Sign in to start copy trading.", [
+        { text: "Cancel", style: "cancel" },
+        { text: "Login", onPress: () => navigation.navigate("Auth") },
+      ]);
+      return;
+    }
+    if (!trader) {
+      Alert.alert("Error", "Trader not loaded");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await startCopyRequest(
+        trader.id,
+        amount,
+        maxDd,
+        multiplier,
+        copyOpen
+      );
+      if (!res.success) {
+        throw new Error(res.message || "Failed to start copy");
+      }
+
+      // Keep local AppData in sync for any UI still reading it
+      startCopy({
+        traderId: trader.id,
+        amount,
+        maxDd,
+        multiplier,
+        copyOpen,
+      });
+
+      const posCount = res.data?.positions?.length ?? 0;
+      Alert.alert(
+        "Copy started",
+        `You are now copying ${trader.name} with ₹${amount.toLocaleString("en-IN")}.\n\n${posCount} position(s) opened · live Binance marks.\n\n${res.data?.note || ""}`,
+        [
+          {
+            text: "View Portfolio",
+            onPress: () => navigation.navigate("MainTabs"),
+          },
+          { text: "OK", onPress: () => navigation.goBack() },
+        ]
+      );
+    } catch (err) {
+      Alert.alert("Could not start copy", getApiErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loadingTrader) {
+    return (
+      <Screen>
+        <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />
+      </Screen>
+    );
+  }
+
+  if (!trader) {
+    return (
+      <Screen>
+        <Text style={{ color: colors.loss, textAlign: "center", marginTop: 40 }}>
+          Trader not found
+        </Text>
+        <GradientButton label="Go back" onPress={() => navigation.goBack()} />
+      </Screen>
+    );
+  }
 
   return (
     <Screen
@@ -29,30 +139,7 @@ export default function CopySetupScreen({ route, navigation }: Props) {
           variant="green"
           label={`Start Copying · ₹${amount.toLocaleString("en-IN")} INR`}
           loading={loading}
-          onPress={async () => {
-            try {
-              setLoading(true);
-              const { startCopyRequest } = require("../config/api");
-              await startCopyRequest(trader.id, amount, maxDd, multiplier, copyOpen);
-
-              startCopy({
-                traderId: trader.id,
-                amount,
-                maxDd,
-                multiplier,
-                copyOpen,
-              });
-              Alert.alert(
-                "Copy started",
-                `You are now copying ${trader.name} with ₹${amount}. (Dummy API Success)`,
-                [{ text: "OK", onPress: () => navigation.navigate("MainTabs") }]
-              );
-            } catch (err: any) {
-              Alert.alert("Error", err.message || "Failed to connect to API");
-            } finally {
-              setLoading(false);
-            }
-          }}
+          onPress={onStart}
         />
       }
     >
@@ -78,7 +165,14 @@ export default function CopySetupScreen({ route, navigation }: Props) {
         </View>
       </View>
 
-      {/* Investment */}
+      <View style={styles.infoBox}>
+        <Ionicons name="information-circle-outline" size={16} color={colors.primary} />
+        <Text style={styles.infoText}>
+          Live copy book marked to Binance prices. Funds stay on your exchange;
+          this session tracks your allocated capital & max drawdown stop.
+        </Text>
+      </View>
+
       <View style={styles.card}>
         <Text style={styles.cardLabel}>INVESTMENT AMOUNT</Text>
         <View style={styles.amountRow}>
@@ -101,7 +195,6 @@ export default function CopySetupScreen({ route, navigation }: Props) {
         </View>
       </View>
 
-      {/* Risk */}
       <View style={styles.card}>
         <Text style={styles.cardLabel}>RISK SETTINGS</Text>
 
@@ -132,11 +225,12 @@ export default function CopySetupScreen({ route, navigation }: Props) {
         />
       </View>
 
-      {/* Toggle */}
       <View style={styles.toggleCard}>
         <View style={{ flex: 1 }}>
           <Text style={styles.toggleTitle}>Copy Open Positions</Text>
-          <Text style={styles.toggleSub}>Include trader&apos;s current trades</Text>
+          <Text style={styles.toggleSub}>
+            Mirror trader&apos;s current open book immediately
+          </Text>
         </View>
         <Switch
           value={copyOpen}
@@ -146,13 +240,23 @@ export default function CopySetupScreen({ route, navigation }: Props) {
         />
       </View>
 
-      {/* Summary */}
       <View style={styles.summary}>
         <Text style={styles.cardLabel}>ORDER SUMMARY</Text>
-        <Row label="Investment" value={`₹${amount.toLocaleString("en-IN")} INR`} />
+        <Row
+          label="Investment"
+          value={`₹${amount.toLocaleString("en-IN")} INR`}
+        />
+        <Row label="Effective size" value={`₹${(amount * multiplier).toLocaleString("en-IN")} (${multiplier}x)`} />
         <Row label="Commission" value="10% of profit" />
         <Row label="Drawdown stop" value={`-${maxDd}%`} danger />
-        <Row label="Size multiplier" value={`${multiplier}x`} />
+        <Row
+          label="Open legs"
+          value={
+            copyOpen
+              ? `${trader.openLegs?.length || 0} positions`
+              : "None (wait for new)"
+          }
+        />
       </View>
     </Screen>
   );
@@ -217,6 +321,17 @@ const styles = StyleSheet.create({
   traderStats: { marginTop: 4, flexDirection: "row", alignItems: "center" },
   dot: { marginHorizontal: 6, color: colors.muted },
   winRate: { fontSize: 12, color: colors.profit, fontWeight: "600" },
+  infoBox: {
+    marginTop: 12,
+    flexDirection: "row",
+    gap: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(91,108,255,0.25)",
+    backgroundColor: colors.primarySoft,
+    padding: 12,
+  },
+  infoText: { flex: 1, fontSize: 12, lineHeight: 17, color: colors.muted },
   card: {
     marginTop: 14,
     borderRadius: 16,
@@ -284,6 +399,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.card,
     padding: 16,
+    marginBottom: 12,
   },
   sumRow: {
     flexDirection: "row",

@@ -1,5 +1,6 @@
 import React, { useRef, useState } from "react";
 import {
+  Alert,
   Pressable,
   StyleSheet,
   Text,
@@ -10,16 +11,25 @@ import { Ionicons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import Screen from "../components/Screen";
 import GradientButton from "../components/GradientButton";
+import { useAuth } from "../context/AuthContext";
 import { useAppData } from "../context/AppDataContext";
 import { RootStackParamList } from "../navigation/types";
 import { colors } from "../theme/colors";
 
 type Props = NativeStackScreenProps<RootStackParamList, "TwoFA">;
 
+/**
+ * Verification screen.
+ * Demo: any 6-digit code calls POST /api/auth/verify, which marks the user
+ * verified and credits referral rewards (₹50 each side) once if pending.
+ * Production: replace with Twilio Verify / Firebase phone OTP.
+ */
 export default function TwoFAScreen({ navigation }: Props) {
   const { settings } = useAppData();
+  const { verifyAccount, user } = useAuth();
   const [codes, setCodes] = useState(["", "", "", "", "", ""]);
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const inputs = useRef<(TextInput | null)[]>([]);
 
   const setDigit = (index: number, value: string) => {
@@ -39,17 +49,31 @@ export default function TwoFAScreen({ navigation }: Props) {
 
   const code = codes.join("");
 
-  const verify = () => {
+  const goNext = () => navigation.replace("ExchangeConnect");
+
+  const verify = async () => {
     if (code.length < 6) {
       setError("Enter the 6-digit code");
       return;
     }
-    // Demo accepts any 6 digits, or classic 123456
-    navigation.replace("ExchangeConnect");
+    setSubmitting(true);
+    setError("");
+    try {
+      const result = await verifyAccount(code);
+      if (result.rewardsCredited) {
+        Alert.alert(
+          "Welcome bonus!",
+          result.message ||
+            `You received ₹${result.rewardAmount} referral reward.`
+        );
+      }
+      goNext();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Verification failed");
+    } finally {
+      setSubmitting(false);
+    }
   };
-
-  // If user disabled 2FA in settings, skip (when coming back from re-login with settings)
-  // Still show UI for onboarding flow — settings apply after first setup
 
   return (
     <Screen keyboard edges={["top", "bottom", "left", "right"]}>
@@ -60,12 +84,15 @@ export default function TwoFAScreen({ navigation }: Props) {
           </View>
         </View>
 
-        <Text style={styles.title}>Two-factor verification</Text>
+        <Text style={styles.title}>Verify your account</Text>
         <Text style={styles.sub}>
-          Enter the 6-digit code from your authenticator app.
+          Enter the 6-digit code sent to{" "}
+          {user?.email ? user.email : "your email"}.
           {settings.twoFAEnabled
             ? " Demo: use any 6 digits (e.g. 123456)."
-            : " 2FA is optional on this account."}
+            : " Demo OTP accepts any 6 digits."}
+          {"\n"}
+          Completing verification unlocks referral rewards if you used a code.
         </Text>
 
         <View style={styles.row}>
@@ -93,6 +120,7 @@ export default function TwoFAScreen({ navigation }: Props) {
             label="Verify & Continue"
             onPress={verify}
             disabled={code.length < 6}
+            loading={submitting}
           />
         </View>
 
@@ -100,11 +128,10 @@ export default function TwoFAScreen({ navigation }: Props) {
           <Text style={styles.resendText}>Resend code</Text>
         </Pressable>
 
-        <Pressable
-          style={styles.skip}
-          onPress={() => navigation.replace("ExchangeConnect")}
-        >
-          <Text style={styles.skipText}>Skip for now</Text>
+        <Pressable style={styles.skip} onPress={goNext}>
+          <Text style={styles.skipText}>
+            Skip for now (rewards unlock after verify)
+          </Text>
         </Pressable>
       </View>
     </Screen>
@@ -180,5 +207,5 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   skip: { marginTop: 14, alignItems: "center" },
-  skipText: { fontSize: 13, color: colors.muted },
+  skipText: { fontSize: 13, color: colors.muted, textAlign: "center" },
 });

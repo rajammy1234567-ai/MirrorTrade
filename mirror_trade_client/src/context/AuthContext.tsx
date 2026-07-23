@@ -14,10 +14,12 @@ import {
   loginRequest,
   meRequest,
   registerRequest,
+  verifyAccountRequest,
   TOKEN_KEY,
   withTimeout,
   type AuthUser,
 } from "../config/api";
+import { getDeviceId } from "../utils/deviceId";
 
 type AuthContextValue = {
   user: AuthUser | null;
@@ -29,8 +31,15 @@ type AuthContextValue = {
     name: string,
     email: string,
     password: string,
-    referralCode?: string
+    referralCode?: string,
+    phone?: string
   ) => Promise<void>;
+  /** Verify email/phone (demo OTP) — unlocks referral rewards */
+  verifyAccount: (code?: string) => Promise<{
+    rewardsCredited: boolean;
+    rewardAmount: number;
+    message?: string;
+  }>;
   logout: () => Promise<void>;
   completeOnboarding: () => Promise<void>;
   setExchangeConnected: (value: boolean) => Promise<void>;
@@ -140,7 +149,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const login = useCallback(async (email: string, password: string) => {
     try {
-      const data = await withTimeout(loginRequest(email.trim(), password));
+      const deviceId = await getDeviceId();
+      const data = await withTimeout(
+        loginRequest(email.trim(), password, deviceId)
+      );
       if (!data.success || !data.token || !data.user) {
         throw new Error(data.message || "Login failed");
       }
@@ -165,11 +177,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       name: string,
       email: string,
       password: string,
-      referralCode?: string
+      referralCode?: string,
+      phone?: string
     ) => {
       try {
+        const deviceId = await getDeviceId();
         const data = await withTimeout(
-          registerRequest(name.trim(), email.trim(), password, referralCode)
+          registerRequest({
+            name: name.trim(),
+            email: email.trim(),
+            password,
+            referralCode,
+            phone,
+            deviceId,
+          })
         );
         if (!data.success || !data.token || !data.user) {
           throw new Error(data.message || "Registration failed");
@@ -182,6 +203,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     },
     []
   );
+
+  const verifyAccount = useCallback(async (code?: string) => {
+    try {
+      const data = await withTimeout(
+        verifyAccountRequest({ code, channel: "demo" })
+      );
+      if (!data.success) {
+        throw new Error(data.message || "Verification failed");
+      }
+      if (data.user) {
+        setUser(data.user);
+        await AsyncStorage.setItem(KEYS.user, JSON.stringify(data.user));
+      }
+      return {
+        rewardsCredited: Boolean(data.rewardsCredited),
+        rewardAmount: data.rewardAmount || 0,
+        message: data.message,
+      };
+    } catch (err) {
+      throw new Error(getApiErrorMessage(err, "Verification failed"));
+    }
+  }, []);
 
   const logout = useCallback(async () => {
     await AsyncStorage.multiRemove([
@@ -225,6 +268,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       exchangeConnected,
       login,
       register,
+      verifyAccount,
       logout,
       completeOnboarding,
       setExchangeConnected,
@@ -237,6 +281,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       exchangeConnected,
       login,
       register,
+      verifyAccount,
       logout,
       completeOnboarding,
       setExchangeConnected,
