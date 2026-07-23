@@ -92,6 +92,7 @@ export default function GradientButton({
 
   const r = size === "sm" ? 12 : 16;
 
+  // Primary CTA — Home-style gold (matches Share Invite)
   return (
     <Pressable
       onPress={onPress}
@@ -99,7 +100,7 @@ export default function GradientButton({
       style={[{ opacity: disabled || loading ? 0.65 : 1 }, style]}
     >
       <LinearGradient
-        colors={["#4F6EF7", "#6B5CFF", "#8B5CF6"]}
+        colors={[colors.primary, colors.primaryEnd]}
         start={{ x: 0, y: 0.5 }}
         end={{ x: 1, y: 0.5 }}
         style={[
@@ -111,7 +112,7 @@ export default function GradientButton({
         ]}
       >
         {loading ? (
-          <ActivityIndicator color="#FFFFFF" />
+          <ActivityIndicator color="#111111" />
         ) : (
           <Text style={[styles.label, { fontSize }]}>{label}</Text>
         )}
@@ -124,11 +125,11 @@ const styles = StyleSheet.create({
   grad: {
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#5B6CFF",
-    shadowOpacity: 0.55,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
+    shadowColor: "#FFD143",
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
   },
   green: {
     alignItems: "center",
@@ -155,8 +156,8 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 59, 92, 0.08)",
   },
   label: {
-    color: "#FFFFFF",
-    fontWeight: "700",
+    color: "#111111",
+    fontWeight: "800",
   },
   ghostText: {
     color: colors.text,

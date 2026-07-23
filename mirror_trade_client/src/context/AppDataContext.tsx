@@ -55,7 +55,11 @@ type AppDataValue = {
   unreadCount: number;
   pauseBot: (id: string) => void;
   stopBot: (id: string) => void;
-  createBot: (bot: Omit<Bot, "id" | "runtime" | "pnl" | "pnlPct" | "running">) => Bot;
+  /** Restart a stopped bot back into Running (no create flow) */
+  resumeStoppedBot: (id: string) => void;
+  createBot: (
+    bot: Omit<Bot, "id" | "runtime" | "pnl" | "pnlPct" | "running" | "stopped">
+  ) => Bot;
   closePosition: (id: string) => void;
   executeSignal: (id: string) => Position | null;
   startCopy: (copy: Omit<CopiedTrader, "startedAt">) => void;
@@ -161,18 +165,23 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
   const pauseBot = useCallback(
     (id: string) => {
+      const bot = bots.find((b) => b.id === id);
+      if (bot?.stopped) return;
       setBots((prev) =>
         prev.map((b) =>
           b.id === id
             ? {
                 ...b,
                 running: !b.running,
-                runtime: b.running ? "Paused" : b.runtime === "Paused" ? "0h" : b.runtime,
+                runtime: b.running
+                  ? "Paused"
+                  : b.runtime === "Paused"
+                    ? "0h"
+                    : b.runtime,
               }
             : b
         )
       );
-      const bot = bots.find((b) => b.id === id);
       if (bot) {
         addNotification({
           title: bot.running ? `${bot.name} paused` : `${bot.name} resumed`,
@@ -190,7 +199,24 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const stopBot = useCallback(
     (id: string) => {
       const bot = bots.find((b) => b.id === id);
-      setBots((prev) => prev.filter((b) => b.id !== id));
+      const now = new Date();
+      const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+      setBots((prev) =>
+        prev.map((b) =>
+          b.id === id
+            ? {
+                ...b,
+                running: false,
+                stopped: true,
+                stopMode: "Normally" as const,
+                stoppedAt: stamp,
+                position: 0,
+                unrealizedPnl: 0,
+                lastActiveHours: 0,
+              }
+            : b
+        )
+      );
       if (bot) {
         addNotification({
           title: `${bot.name} stopped`,
@@ -203,20 +229,57 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     [bots, addNotification]
   );
 
+  const resumeStoppedBot = useCallback(
+    (id: string) => {
+      const bot = bots.find((b) => b.id === id);
+      if (!bot?.stopped) return;
+      setBots((prev) =>
+        prev.map((b) =>
+          b.id === id
+            ? {
+                ...b,
+                stopped: false,
+                running: true,
+                stopMode: undefined,
+                stoppedAt: undefined,
+                runtime: "0h",
+                lastActiveHours: 0,
+              }
+            : b
+        )
+      );
+      if (bot) {
+        addNotification({
+          title: `${bot.name} restarted`,
+          body: `${bot.type} · ${bot.market} · ${bot.pair} is live again.`,
+          time: "Just now",
+          type: "bot",
+        });
+      }
+    },
+    [bots, addNotification]
+  );
+
+  /** Kept for future algo wiring — not exposed in Bot UI for now */
   const createBot = useCallback(
-    (input: Omit<Bot, "id" | "runtime" | "pnl" | "pnlPct" | "running">) => {
+    (input: Omit<Bot, "id" | "runtime" | "pnl" | "pnlPct" | "running" | "stopped">) => {
       const bot: Bot = {
         ...input,
+        market: input.market ?? "Spot",
         id: uid("b"),
         running: true,
+        stopped: false,
         runtime: "0h",
         pnl: 0,
         pnlPct: 0,
+        position: 0,
+        unrealizedPnl: 0,
+        lastActiveHours: 0,
       };
       setBots((prev) => [bot, ...prev]);
       addNotification({
         title: `${bot.name} launched`,
-        body: `${bot.type} on ${bot.pair} · ₹${bot.investment.toLocaleString("en-IN")}`,
+        body: `${bot.type} · ${bot.market} · ${bot.pair} · ₹${bot.investment.toLocaleString("en-IN")}`,
         time: "Just now",
         type: "bot",
       });
@@ -318,6 +381,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       unreadCount,
       pauseBot,
       stopBot,
+      resumeStoppedBot,
       createBot,
       closePosition,
       executeSignal,
@@ -338,6 +402,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       unreadCount,
       pauseBot,
       stopBot,
+      resumeStoppedBot,
       createBot,
       closePosition,
       executeSignal,

@@ -1,17 +1,38 @@
+/**
+ * App palette — aligned with Home (midnight + gold accents).
+ * Use these tokens everywhere so screens stay uniform.
+ */
 export const colors = {
-  bg: "#0B0E14",
-  surface: "#12161F",
-  card: "#151A24",
-  elevated: "#1A2030",
-  border: "#252B3A",
-  muted: "#8B93A7",
-  text: "#F4F6FB",
-  primary: "#5B6CFF",
-  primaryEnd: "#8B5CF6",
-  primarySoft: "rgba(91, 108, 255, 0.15)",
-  profit: "#00D084",
+  /** Page background (Home APP_BG) */
+  bg: "#1A1B26",
+  /** Tab bar / elevated surfaces */
+  surface: "#1E2030",
+  /** Cards */
+  card: "#242633",
+  /** Nested / pressed surfaces */
+  elevated: "#2A2D3C",
+  /** Borders */
+  border: "#2E3142",
+  /** Secondary text */
+  muted: "#94A3B8",
+  /** Primary text */
+  text: "#F8FAFC",
+
+  /**
+   * Interactive accent (Home yellow buttons / highlights).
+   * Used for tabs, chips, links, CTAs.
+   */
+  primary: "#FFD143",
+  primaryEnd: "#F5C518",
+  primarySoft: "rgba(255, 209, 67, 0.12)",
+
+  /** Optional secondary brand (soft violet for rare gradients) */
+  brand: "#7C8CFF",
+  brandSoft: "rgba(124, 140, 255, 0.14)",
+
+  profit: "#22C55E",
   loss: "#FF3B5C",
   warn: "#F5A524",
   greenBtn: "#00C853",
-  chipBg: "#1C2230",
+  chipBg: "#2A2D3C",
 } as const;

@@ -1,7 +1,8 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -24,18 +25,15 @@ import {
   type ExchangeConnection,
 } from "../config/api";
 import { formatMoney } from "../config/currency";
-import { exchanges } from "../data/mock";
+import { exchanges, type ExchangeCatalogItem } from "../data/mock";
 import { useAuth } from "../context/AuthContext";
 import { RootStackParamList } from "../navigation/types";
 import { colors } from "../theme/colors";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ExchangeConnect">;
 
-const API_EXCHANGES = [
-  { id: "binance", name: "Binance", color: "#F0B90B" },
-  { id: "bybit", name: "Bybit", color: "#F7A600" },
-  { id: "okx", name: "OKX", color: "#FFFFFF" },
-];
+const favicon = (domain: string) =>
+  `https://www.google.com/s2/favicons?sz=128&domain=${domain}`;
 
 export default function ExchangeConnectScreen({ navigation }: Props) {
   const { setExchangeConnected, completeOnboarding, refreshUser } = useAuth();
@@ -50,6 +48,12 @@ export default function ExchangeConnectScreen({ navigation }: Props) {
   const [loadingList, setLoadingList] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [syncing, setSyncing] = useState(false);
+
+  const catalogById = useMemo(() => {
+    const map = new Map<string, ExchangeCatalogItem>();
+    exchanges.forEach((e) => map.set(e.id, e));
+    return map;
+  }, []);
 
   const loadConnections = useCallback(async () => {
     try {
@@ -71,7 +75,6 @@ export default function ExchangeConnectScreen({ navigation }: Props) {
     useCallback(() => {
       setLoadingList(true);
       loadConnections();
-      // never leave spinner forever
       const t = setTimeout(() => setLoadingList(false), 5500);
       return () => clearTimeout(t);
     }, [loadConnections])
@@ -84,15 +87,16 @@ export default function ExchangeConnectScreen({ navigation }: Props) {
     navigation.replace("MainTabs");
   };
 
-  /** Always can leave this screen — goBack or Home (onboarding has no stack history) */
   const goHome = () => {
     if (navigation.canGoBack()) {
       navigation.goBack();
       return;
     }
-    // Opened via replace (Splash / 2FA) — no previous screen
     void finishOnboarding(connected.length > 0);
   };
+
+  const selectedMeta = selected ? catalogById.get(selected) : undefined;
+  const needsPass = !!selectedMeta?.needsPassphrase;
 
   const onConnect = async () => {
     if (!selected || !apiKey.trim() || !apiSecret.trim()) {
@@ -106,8 +110,13 @@ export default function ExchangeConnectScreen({ navigation }: Props) {
       );
       return;
     }
-    if (selected === "okx" && !passphrase.trim()) {
-      Alert.alert("OKX passphrase", "OKX requires the API passphrase");
+    if (needsPass && !passphrase.trim()) {
+      Alert.alert(
+        selectedMeta?.passphraseLabel || "Passphrase",
+        `${selectedMeta?.name || selected} requires ${
+          selectedMeta?.passphraseLabel?.toLowerCase() || "a passphrase"
+        }.`
+      );
       return;
     }
 
@@ -117,7 +126,7 @@ export default function ExchangeConnectScreen({ navigation }: Props) {
         exchange: selected,
         apiKey: apiKey.trim(),
         apiSecret: apiSecret.trim(),
-        ...(selected === "okx" ? { passphrase: passphrase.trim() } : {}),
+        ...(needsPass ? { passphrase: passphrase.trim() } : {}),
       });
 
       const cap = res.data?.capital;
@@ -127,7 +136,7 @@ export default function ExchangeConnectScreen({ navigation }: Props) {
       if (cap) {
         msg += `\n\nCapital: ${formatMoney(cap.totalDeposit, { decimals: 2 })}\nT-VIP: ${cap.tVipRank}\nC-VIP: ${cap.cVipRank}`;
       } else if (capErr) {
-        msg += `\n\nCapital sync note: ${capErr}\nYou can retry “Sync capital” from VIP Plans.`;
+        msg += `\n\nCapital sync note: ${capErr}\nYou can retry “Sync capital”.`;
       }
 
       Alert.alert("Connected", msg, [
@@ -151,16 +160,19 @@ export default function ExchangeConnectScreen({ navigation }: Props) {
       setStep(1);
       await loadConnections();
     } catch (err) {
-      Alert.alert("Connection failed", getApiErrorMessage(err, "Could not connect exchange"));
+      Alert.alert(
+        "Connection failed",
+        getApiErrorMessage(err, "Could not connect exchange")
+      );
     } finally {
       setSubmitting(false);
     }
   };
 
-  const onSync = async () => {
+  const onSync = async (exchangeId?: string) => {
     setSyncing(true);
     try {
-      const res = await syncExchangeCapitalRequest();
+      const res = await syncExchangeCapitalRequest(exchangeId);
       const cap = res.data?.capital;
       Alert.alert(
         "Capital synced",
@@ -176,9 +188,10 @@ export default function ExchangeConnectScreen({ navigation }: Props) {
   };
 
   const onDisconnect = (exchange: string) => {
+    const label = catalogById.get(exchange)?.name || exchange;
     Alert.alert(
       "Disconnect",
-      `Remove ${exchange} API keys from MirrorTrade? Funds on the exchange are not affected.`,
+      `Remove ${label} API keys from MirrorTrade? Funds on the exchange are not affected.`,
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -198,73 +211,41 @@ export default function ExchangeConnectScreen({ navigation }: Props) {
     );
   };
 
-  const renderExchangeCard = (ex: (typeof exchanges)[0] | (typeof API_EXCHANGES)[0], isConnected: boolean) => {
-    const id = ex.id;
-    const name = ex.name;
-    const color = "color" in ex ? ex.color : colors.primary;
-    const short = "short" in ex ? (ex as { short?: string }).short : name.slice(0, 3);
-    const conn = connected.find((c) => c.exchange === id);
-
-    return (
-      <Pressable
-        key={id}
-        onPress={() => {
-          if (isConnected) return;
-          setSelected(id);
-          setStep(2);
-        }}
-        style={styles.cardContainer}
-      >
-        {isConnected && (
-          <View style={styles.statusBanner}>
-            <Text style={styles.statusText}>
-              Connected · capital {formatMoney(conn?.lastCapital ?? 0, { decimals: 0 })}
-            </Text>
-            <Pressable style={styles.modifyRow} onPress={() => onDisconnect(id)}>
-              <Text style={styles.modifyText}>Disconnect</Text>
-              <Ionicons name="chevron-forward" size={14} color="#FFF" />
-            </Pressable>
-          </View>
-        )}
-
-        <View style={styles.cardContent}>
-          <View style={styles.exInfoLeft}>
-            <View style={[styles.exIcon, { backgroundColor: `${color}22` }]}>
-              <Text style={[styles.exShort, { color }]}>
-                {(short || name).slice(0, 3).toUpperCase()}
-              </Text>
-            </View>
-            <View>
-              <Text style={styles.exName}>{name}</Text>
-              <Text style={styles.exHint}>
-                {isConnected
-                  ? "Trade-only API · funds on exchange"
-                  : "Connect API for VIP levels"}
-              </Text>
-            </View>
-          </View>
-          {!isConnected ? (
-            <Ionicons name="add-circle-outline" size={24} color={colors.primary} />
-          ) : (
-            <Ionicons name="checkmark-circle" size={22} color={colors.profit} />
-          )}
-        </View>
-      </Pressable>
-    );
+  const openConnect = (id: string) => {
+    setSelected(id);
+    setApiKey("");
+    setApiSecret("");
+    setPassphrase("");
+    setTradeOnly(true);
+    setStep(2);
   };
 
-  if (step === 2) {
-    const label =
-      API_EXCHANGES.find((e) => e.id === selected)?.name ||
-      exchanges.find((e) => e.id === selected)?.name ||
-      selected;
+  const filteredCatalog = useMemo(() => {
+    return exchanges.filter((e) => {
+      if (activeTab === "USDT") return e.quote === "USDT" || e.quote === "BOTH" || !e.quote;
+      return e.quote === "USDC" || e.quote === "BOTH";
+    });
+  }, [activeTab]);
 
+  const connectedIds = new Set(connected.map((c) => c.exchange));
+  const available = filteredCatalog.filter((e) => !connectedIds.has(e.id));
+  const connectedRows = connected
+    .map((c) => ({
+      conn: c,
+      meta: catalogById.get(c.exchange),
+    }))
+    .filter((r) => r.meta);
+
+  /* ───────── Step 2: credentials form ───────── */
+  if (step === 2 && selectedMeta) {
     return (
       <Screen edges={["top", "bottom", "left", "right"]} keyboard>
         <View style={styles.headerDark}>
           <Pressable onPress={() => setStep(1)} style={styles.backBtnHeaderDark}>
             <Ionicons name="chevron-back" size={24} color={colors.text} />
-            <Text style={styles.headerTitleDark}>API Credentials</Text>
+            <Text style={styles.headerTitleDark}>
+              Connect {selectedMeta.name}
+            </Text>
           </Pressable>
           <Pressable onPress={goHome} hitSlop={12} style={styles.homeChipDark}>
             <Ionicons name="home-outline" size={16} color={colors.primary} />
@@ -273,11 +254,22 @@ export default function ExchangeConnectScreen({ navigation }: Props) {
         </View>
 
         <View style={styles.formContainer}>
-          <Text style={styles.title}>API Credentials</Text>
+          <View style={styles.selectedHero}>
+            <ExchangeLogo meta={selectedMeta} size={48} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.selectedName}>{selectedMeta.name}</Text>
+              <Text style={styles.selectedHint}>
+                Trade-only API · funds stay on exchange
+              </Text>
+            </View>
+          </View>
+
           <Text style={styles.sub}>
-            Paste your {label} trade-only API key. MirrorTrade never withdraws — deposit &
-            withdraw only on the exchange. VIP levels use your exchange capital.
+            Paste your {selectedMeta.name} API key & secret. MirrorTrade never
+            withdraws — deposit & withdraw only on the exchange. VIP levels use
+            your exchange capital.
           </Text>
+
           <View style={styles.list}>
             <AuthInput
               icon="key-outline"
@@ -294,10 +286,10 @@ export default function ExchangeConnectScreen({ navigation }: Props) {
               secureTextEntry
               autoCapitalize="none"
             />
-            {selected === "okx" ? (
+            {needsPass ? (
               <AuthInput
                 icon="shield-outline"
-                placeholder="Passphrase (OKX)"
+                placeholder={selectedMeta.passphraseLabel || "Passphrase"}
                 value={passphrase}
                 onChangeText={setPassphrase}
                 secureTextEntry
@@ -329,10 +321,16 @@ export default function ExchangeConnectScreen({ navigation }: Props) {
             </View>
 
             <GradientButton
-              label={submitting ? "Connecting…" : "Connect Exchange"}
+              label={submitting ? "Connecting…" : `Connect ${selectedMeta.name}`}
               onPress={onConnect}
               loading={submitting}
-              disabled={!apiKey || !apiSecret || !tradeOnly || submitting}
+              disabled={
+                !apiKey ||
+                !apiSecret ||
+                !tradeOnly ||
+                submitting ||
+                (needsPass && !passphrase)
+              }
             />
           </View>
         </View>
@@ -340,12 +338,12 @@ export default function ExchangeConnectScreen({ navigation }: Props) {
     );
   }
 
-  const connectedIds = new Set(connected.map((c) => c.exchange));
-  const mockConnected = exchanges.filter((e) => connectedIds.has(e.id));
-  const available = API_EXCHANGES.filter((e) => !connectedIds.has(e.id));
-
+  /* ───────── Step 1: exchange list ───────── */
   return (
-    <Screen edges={["top", "left", "right"]} contentStyle={{ flex: 1, backgroundColor: "#F8F9FA" }}>
+    <Screen
+      edges={["top", "left", "right"]}
+      contentStyle={{ flex: 1, backgroundColor: "#F8F9FA" }}
+    >
       <View style={styles.headerLight}>
         <View style={styles.headerLeft}>
           <Pressable
@@ -353,96 +351,256 @@ export default function ExchangeConnectScreen({ navigation }: Props) {
             hitSlop={12}
             style={styles.backHit}
             accessibilityRole="button"
-            accessibilityLabel="Go back to home"
+            accessibilityLabel="Go back"
           >
             <Ionicons name="chevron-back" size={24} color="#000" />
           </Pressable>
           <Text style={styles.headerTitleLight}>API Connect</Text>
         </View>
-        <Pressable
-          onPress={goHome}
-          hitSlop={12}
-          style={styles.homeChip}
-          accessibilityRole="button"
-          accessibilityLabel="Go to home"
-        >
+        <Pressable onPress={goHome} hitSlop={12} style={styles.homeChip}>
           <Ionicons name="home-outline" size={16} color="#2562FF" />
           <Text style={styles.headerRightText}>Home</Text>
         </Pressable>
       </View>
 
       <View style={styles.tabsRow}>
-        <Pressable
-          onPress={() => setActiveTab("USDT")}
-          style={[styles.tabBtn, activeTab === "USDT" && styles.tabBtnActive]}
-        >
-          <Text style={[styles.tabText, activeTab === "USDT" && styles.tabTextActive]}>
-            USDT
-          </Text>
-          {activeTab === "USDT" && <View style={styles.tabIndicator} />}
-        </Pressable>
-        <Pressable
-          onPress={() => setActiveTab("USDC")}
-          style={[styles.tabBtn, activeTab === "USDC" && styles.tabBtnActive]}
-        >
-          <Text style={[styles.tabText, activeTab === "USDC" && styles.tabTextActive]}>
-            USDC
-          </Text>
-          {activeTab === "USDC" && <View style={styles.tabIndicator} />}
-        </Pressable>
+        {(["USDT", "USDC"] as const).map((tab) => (
+          <Pressable
+            key={tab}
+            onPress={() => setActiveTab(tab)}
+            style={[styles.tabBtn, activeTab === tab && styles.tabBtnActive]}
+          >
+            <Text
+              style={[styles.tabText, activeTab === tab && styles.tabTextActive]}
+            >
+              {tab}
+            </Text>
+            {activeTab === tab ? <View style={styles.tabIndicator} /> : null}
+          </Pressable>
+        ))}
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.infoBanner}>
           <Ionicons name="information-circle" size={18} color="#2562FF" />
           <Text style={styles.infoBannerText}>
-            No payments inside MirrorTrade. Deposit / withdraw on your exchange. VIP levels
-            update from exchange capital after API connect.
+            No payments inside MirrorTrade. Deposit / withdraw on your exchange.
+            Connect API key + secret — VIP levels update from exchange capital.
           </Text>
         </View>
 
         {loadingList ? (
-          <Text style={{ color: "#888", marginBottom: 12, textAlign: "center" }}>
-            Checking connections…
-          </Text>
+          <View style={styles.loadingRow}>
+            <ActivityIndicator color="#2562FF" />
+            <Text style={styles.loadingText}>Checking connections…</Text>
+          </View>
         ) : null}
 
-        {connected.length > 0 && (
+        {connectedRows.length > 0 ? (
           <View style={styles.section}>
             <View style={styles.sectionHead}>
               <Text style={styles.sectionTitle}>Connected API</Text>
-              <Pressable onPress={onSync} disabled={syncing}>
+              <Pressable onPress={() => onSync()} disabled={syncing}>
                 <Text style={styles.syncLink}>
                   {syncing ? "Syncing…" : "Sync capital"}
                 </Text>
               </Pressable>
             </View>
-            {(mockConnected.length ? mockConnected : connected).map((ex) =>
-              renderExchangeCard(
-                "exchange" in ex
-                  ? {
-                      id: (ex as ExchangeConnection).exchange,
-                      name: (ex as ExchangeConnection).exchange,
-                      color: colors.primary,
-                    }
-                  : ex,
-                true
-              )
-            )}
+            {connectedRows.map(({ conn, meta }) => (
+              <ConnectedCard
+                key={conn.exchange}
+                meta={meta!}
+                conn={conn}
+                onModify={() => onDisconnect(conn.exchange)}
+                onSync={() => onSync(conn.exchange)}
+              />
+            ))}
           </View>
-        )}
+        ) : null}
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>CEX API</Text>
           <Text style={styles.sectionSub}>
-            Trade-only API permissions. Funds always remain on your exchange.
+            We only have API trading permissions, and your funds always remain
+            securely in your exchange.
           </Text>
-          {available.map((ex) => renderExchangeCard(ex, false))}
+          {available.map((ex) => (
+            <CexCard key={ex.id} meta={ex} onPress={() => openConnect(ex.id)} />
+          ))}
+          {available.length === 0 && !loadingList ? (
+            <Text style={styles.emptyAvail}>
+              All supported exchanges are connected for {activeTab}.
+            </Text>
+          ) : null}
         </View>
       </ScrollView>
     </Screen>
   );
 }
+
+/* ─── UI pieces ─── */
+
+function ExchangeLogo({
+  meta,
+  size = 40,
+}: {
+  meta: ExchangeCatalogItem;
+  size?: number;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <View
+        style={[
+          styles.logoFallback,
+          {
+            width: size,
+            height: size,
+            borderRadius: size * 0.28,
+            backgroundColor: `${meta.color}22`,
+          },
+        ]}
+      >
+        <Text style={[styles.logoShort, { color: meta.color, fontSize: size * 0.28 }]}>
+          {meta.short.slice(0, 3)}
+        </Text>
+      </View>
+    );
+  }
+  return (
+    <Image
+      source={{ uri: favicon(meta.domain) }}
+      style={{ width: size, height: size, borderRadius: size * 0.28 }}
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+function ConnectedCard({
+  meta,
+  conn,
+  onModify,
+  onSync,
+}: {
+  meta: ExchangeCatalogItem;
+  conn: ExchangeConnection;
+  onModify: () => void;
+  onSync: () => void;
+}) {
+  const status =
+    conn.permissions?.futuresTrading && !conn.permissions?.spotTrading
+      ? "API is normal,but only enable futures."
+      : conn.status === "connected"
+        ? "API is normal."
+        : conn.status;
+
+  return (
+    <View style={styles.cardContainer}>
+      <View style={styles.statusBanner}>
+        <Text style={styles.statusText} numberOfLines={1}>
+          {status}
+        </Text>
+        <Pressable style={styles.modifyRow} onPress={onModify}>
+          <Text style={styles.modifyText}>Modify</Text>
+          <Ionicons name="chevron-forward" size={14} color="#FFF" />
+        </Pressable>
+      </View>
+
+      <View style={styles.cardContent}>
+        <View style={styles.exInfoLeft}>
+          <ExchangeLogo meta={meta} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <View style={styles.nameRow}>
+              <Text style={styles.exName}>{meta.name}</Text>
+              <View style={styles.tagUsdt}>
+                <Text style={styles.tagUsdtText}>USDT</Text>
+              </View>
+            </View>
+            <View style={styles.metricsRow}>
+              <Metric label="Spot" value={`${meta.spot} Coins`} />
+              <Metric label="Futures" value={`${meta.futures} Perp`} />
+            </View>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.protectRow}>
+        <Ionicons name="shield-checkmark" size={14} color="#2562FF" />
+        <Text style={styles.protectText}>
+          Capital {formatMoney(conn.lastCapital ?? 0, { decimals: 2 })} · API
+          protected
+        </Text>
+        <Pressable onPress={onSync} hitSlop={8}>
+          <Text style={styles.syncMini}>Sync</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function CexCard({
+  meta,
+  onPress,
+}: {
+  meta: ExchangeCatalogItem;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable onPress={onPress} style={styles.cexCard}>
+      <View style={styles.exInfoLeft}>
+        <ExchangeLogo meta={meta} />
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <View style={styles.nameRow}>
+            <Text style={styles.exName}>{meta.name}</Text>
+            {meta.hot ? (
+              <Text style={styles.hotIcon}>🔥</Text>
+            ) : null}
+            <View style={styles.tagUsdt}>
+              <Text style={styles.tagUsdtText}>USDT</Text>
+            </View>
+            {meta.quick ? (
+              <View style={styles.tagQuick}>
+                <Text style={styles.tagQuickText}>Quick</Text>
+              </View>
+            ) : null}
+          </View>
+          <View style={styles.metricsRow}>
+            <Metric label="Spot" value={`${meta.spot} Coins`} />
+            <Metric
+              label="Futures"
+              value={
+                meta.futures === "--" ? "--" : `${meta.futures} Perp`
+              }
+            />
+          </View>
+          {meta.latestListing ? (
+            <Text style={styles.listing}>
+              Latest Listing: {meta.latestListing}
+              {meta.latestListingDate
+                ? `    ${meta.latestListingDate}`
+                : ""}
+            </Text>
+          ) : null}
+        </View>
+      </View>
+      <Ionicons name="add-circle-outline" size={22} color="#2562FF" />
+    </Pressable>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.metric}>
+      <Text style={styles.metricLabel}>{label}</Text>
+      <Text style={styles.metricValue}>{value}</Text>
+    </View>
+  );
+}
+
+/* ─── styles ─── */
 
 const styles = StyleSheet.create({
   headerLight: {
@@ -501,6 +659,14 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   infoBannerText: { flex: 1, fontSize: 12, color: "#1E3A5F", lineHeight: 17 },
+  loadingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginBottom: 12,
+  },
+  loadingText: { color: "#888", fontSize: 13 },
   section: { marginBottom: 20 },
   sectionHead: {
     flexDirection: "row",
@@ -514,8 +680,20 @@ const styles = StyleSheet.create({
     color: "#333",
     marginBottom: 8,
   },
-  sectionSub: { fontSize: 12, color: "#888", marginBottom: 12, lineHeight: 17 },
+  sectionSub: {
+    fontSize: 12,
+    color: "#888",
+    marginBottom: 12,
+    lineHeight: 17,
+  },
   syncLink: { color: "#2562FF", fontWeight: "700", fontSize: 13 },
+  emptyAvail: {
+    textAlign: "center",
+    color: "#888",
+    fontSize: 13,
+    paddingVertical: 16,
+  },
+
   cardContainer: {
     backgroundColor: "#FFF",
     borderRadius: 14,
@@ -525,33 +703,94 @@ const styles = StyleSheet.create({
     borderColor: "#EEE",
   },
   statusBanner: {
-    backgroundColor: "#2562FF",
+    backgroundColor: "#22C55E",
     paddingHorizontal: 12,
     paddingVertical: 8,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  statusText: { color: "#FFF", fontSize: 12, fontWeight: "600" },
+  statusText: { color: "#FFF", fontSize: 12, fontWeight: "600", flex: 1 },
   modifyRow: { flexDirection: "row", alignItems: "center", gap: 2 },
-  modifyText: { color: "#FFF", fontSize: 12 },
+  modifyText: { color: "#FFF", fontSize: 12, fontWeight: "600" },
   cardContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     padding: 14,
   },
-  exInfoLeft: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1 },
-  exIcon: {
-    width: 40,
-    height: 40,
+  protectRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginHorizontal: 12,
+    marginBottom: 12,
+    backgroundColor: "#E8F0FF",
     borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  protectText: { flex: 1, fontSize: 11, color: "#1E3A5F", fontWeight: "600" },
+  syncMini: { color: "#2562FF", fontWeight: "700", fontSize: 12 },
+
+  cexCard: {
+    backgroundColor: "#FFF",
+    borderRadius: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#EEE",
+    padding: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  exInfoLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    flex: 1,
+  },
+  logoFallback: {
     alignItems: "center",
     justifyContent: "center",
   },
-  exShort: { fontWeight: "800", fontSize: 12 },
+  logoShort: { fontWeight: "800" },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexWrap: "wrap",
+  },
   exName: { fontSize: 15, fontWeight: "700", color: "#111" },
-  exHint: { fontSize: 11, color: "#888", marginTop: 2 },
+  hotIcon: { fontSize: 12 },
+  tagUsdt: {
+    backgroundColor: "#E8F8EF",
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  tagUsdtText: { fontSize: 10, fontWeight: "700", color: "#16A34A" },
+  tagQuick: {
+    backgroundColor: "#EEF2FF",
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  tagQuickText: { fontSize: 10, fontWeight: "700", color: "#4F46E5" },
+  metricsRow: {
+    flexDirection: "row",
+    gap: 20,
+    marginTop: 8,
+  },
+  metric: {},
+  metricLabel: { fontSize: 11, color: "#999", marginBottom: 2 },
+  metricValue: { fontSize: 13, fontWeight: "600", color: "#333" },
+  listing: {
+    marginTop: 8,
+    fontSize: 11,
+    color: "#AAA",
+  },
+
   headerDark: {
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -561,8 +800,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  backBtnHeaderDark: { flexDirection: "row", alignItems: "center", gap: 8 },
-  headerTitleDark: { fontSize: 18, fontWeight: "700", color: colors.text },
+  backBtnHeaderDark: { flexDirection: "row", alignItems: "center", gap: 8, flex: 1 },
+  headerTitleDark: { fontSize: 17, fontWeight: "700", color: colors.text },
   homeChipDark: {
     flexDirection: "row",
     alignItems: "center",
@@ -574,8 +813,33 @@ const styles = StyleSheet.create({
   },
   homeChipDarkText: { color: colors.primary, fontSize: 13, fontWeight: "700" },
   formContainer: { padding: 16 },
-  title: { fontSize: 22, fontWeight: "800", color: colors.text, marginBottom: 8 },
-  sub: { fontSize: 13, color: colors.muted, lineHeight: 19, marginBottom: 16 },
+  selectedHero: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 14,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+  },
+  selectedName: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: colors.text,
+  },
+  selectedHint: {
+    marginTop: 2,
+    fontSize: 12,
+    color: colors.muted,
+  },
+  sub: {
+    fontSize: 13,
+    color: colors.muted,
+    lineHeight: 19,
+    marginBottom: 16,
+  },
   list: { gap: 12 },
   checkRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   checkText: { flex: 1, color: colors.text, fontSize: 13 },

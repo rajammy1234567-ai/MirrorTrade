@@ -15,6 +15,7 @@ export default function CreateBotScreen({ navigation, route }: Props) {
   const [type, setType] = useState<"Grid" | "DCA">(
     route.params?.type || "Grid"
   );
+  const [market, setMarket] = useState<"Spot" | "Futures">("Spot");
   const [pair, setPair] = useState("BTC/USDT");
   const [amount, setAmount] = useState("1000");
   const [grids, setGrids] = useState("20");
@@ -30,6 +31,7 @@ export default function CreateBotScreen({ navigation, route }: Props) {
     const bot = createBot({
       name: `${pair.split("/")[0]} ${type} Bot`,
       type,
+      market,
       pair: pair.toUpperCase(),
       investment: inv,
     });
@@ -69,6 +71,22 @@ export default function CreateBotScreen({ navigation, route }: Props) {
         ))}
       </View>
 
+      <View style={styles.typeRow}>
+        {(["Spot", "Futures"] as const).map((m) => (
+          <Pressable
+            key={m}
+            onPress={() => setMarket(m)}
+            style={[styles.typeBtn, market === m && styles.marketBtnActive]}
+          >
+            <Text
+              style={[styles.typeText, market === m && styles.marketTextActive]}
+            >
+              {m}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
       <View style={styles.card}>
         <Field label="Pair" value={pair} onChange={setPair} />
         <Field
@@ -92,7 +110,7 @@ export default function CreateBotScreen({ navigation, route }: Props) {
           <View style={styles.infoBox}>
             <Ionicons name="information-circle-outline" size={16} color={colors.primary} />
             <Text style={styles.infoText}>
-              DCA will split ₹{amount || "0"} into recurring buys on {pair}.
+              DCA will split ₹{amount || "0"} into recurring buys on {pair} ({market}).
             </Text>
           </View>
         )}
@@ -181,8 +199,13 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     backgroundColor: colors.primarySoft,
   },
+  marketBtnActive: {
+    borderColor: "#F5E6A8",
+    backgroundColor: "rgba(245, 230, 168, 0.16)",
+  },
   typeText: { fontSize: 14, fontWeight: "600", color: colors.muted },
   typeTextActive: { color: colors.primary },
+  marketTextActive: { color: "#F5E6A8" },
   card: {
     marginTop: 16,
     borderRadius: 16,

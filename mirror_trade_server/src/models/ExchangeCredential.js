@@ -19,12 +19,23 @@ const exchangeCredentialSchema = new mongoose.Schema(
     },
     exchange: {
       type: String,
-      enum: ['binance', 'bybit', 'okx'],
+      enum: [
+        "binance",
+        "bybit",
+        "okx",
+        "bingx",
+        "mexc",
+        "bitmart",
+        "bitfinex",
+        "kraken",
+        "kraken_futures",
+        "binance_us",
+      ],
       required: true,
     },
     apiKeyEnc: { type: encryptedFieldSchema, required: true },
     apiSecretEnc: { type: encryptedFieldSchema, required: true },
-    // OKX also needs a passphrase in addition to key+secret
+    // OKX / BitMart need passphrase or memo in addition to key+secret
     passphraseEnc: { type: encryptedFieldSchema, required: false },
 
     // Filled in after we verify the key against the exchange

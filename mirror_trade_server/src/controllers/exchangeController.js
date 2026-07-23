@@ -1,16 +1,11 @@
 const ExchangeCredential = require("../models/ExchangeCredential");
 const { encrypt, decrypt } = require("../utils/encryption");
 const { setExchangeCapital } = require("../services/capitalService");
-
-const binanceService = require("../services/exchanges/binanceService");
-const bybitService = require("../services/exchanges/bybitService");
-const okxService = require("../services/exchanges/okxService");
-
-const serviceMap = {
-  binance: binanceService,
-  bybit: bybitService,
-  okx: okxService,
-};
+const {
+  serviceMap,
+  needsPassphrase,
+  isSupported,
+} = require("../services/exchanges");
 
 function formatConnection(doc) {
   return {
@@ -41,16 +36,33 @@ async function fetchCapitalFromExchange(exchange, creds) {
   if (!service?.getUsdtCapital) {
     throw new Error(`Balance sync not supported for ${exchange}`);
   }
-  if (exchange === "okx") {
-    return service.getUsdtCapital(creds.apiKey, creds.apiSecret, creds.passphrase);
+  if (needsPassphrase(exchange)) {
+    return service.getUsdtCapital(
+      creds.apiKey,
+      creds.apiSecret,
+      creds.passphrase
+    );
   }
   return service.getUsdtCapital(creds.apiKey, creds.apiSecret);
 }
 
 /**
+ * GET /api/exchanges/catalog
+ * Public list of supported exchanges for the client UI.
+ */
+const listCatalog = async (_req, res) => {
+  return res.json({
+    success: true,
+    data: Object.keys(serviceMap).map((id) => ({
+      id,
+      needsPassphrase: needsPassphrase(id),
+    })),
+  });
+};
+
+/**
  * POST /api/exchanges/connect
  * body: { exchange, apiKey, apiSecret, passphrase? }
- * Verifies trade-only key, stores encrypted credentials, syncs capital for VIP levels.
  */
 const connectExchange = async (req, res) => {
   try {
@@ -63,16 +75,19 @@ const connectExchange = async (req, res) => {
         message: "exchange, apiKey and apiSecret are required",
       });
     }
-    if (!serviceMap[exchange]) {
+    if (!isSupported(exchange)) {
       return res.status(400).json({
         success: false,
         message: `Unsupported exchange: ${exchange}`,
       });
     }
-    if (exchange === "okx" && !passphrase) {
+    if (needsPassphrase(exchange) && !passphrase) {
       return res.status(400).json({
         success: false,
-        message: "OKX requires a passphrase",
+        message:
+          exchange === "bitmart"
+            ? "BitMart requires API memo (passphrase)"
+            : `${exchange.toUpperCase()} requires a passphrase`,
       });
     }
 
@@ -87,19 +102,23 @@ const connectExchange = async (req, res) => {
     const service = serviceMap[exchange];
     let permissions;
     try {
-      permissions =
-        exchange === "okx"
-          ? await service.checkApiRestrictions(apiKey, apiSecret, passphrase)
-          : await service.checkApiRestrictions(apiKey, apiSecret);
+      permissions = needsPassphrase(exchange)
+        ? await service.checkApiRestrictions(apiKey, apiSecret, passphrase)
+        : await service.checkApiRestrictions(apiKey, apiSecret);
     } catch (err) {
-      const msg = err.response?.data?.msg || err.message;
+      const msg =
+        err.response?.data?.msg ||
+        err.response?.data?.message ||
+        (Array.isArray(err.response?.data?.error)
+          ? err.response.data.error.join(", ")
+          : null) ||
+        err.message;
       return res.status(400).json({
         success: false,
         message: `Could not verify API key with ${exchange}: ${msg}`,
       });
     }
 
-    // Trade-only guarantee — reject withdrawal-enabled keys
     if (permissions.withdrawals) {
       return res.status(400).json({
         success: false,
@@ -112,27 +131,30 @@ const connectExchange = async (req, res) => {
     const apiSecretEnc = encrypt(apiSecret);
     const passphraseEnc = passphrase ? encrypt(passphrase) : undefined;
 
+    const update = {
+      userId,
+      exchange,
+      apiKeyEnc,
+      apiSecretEnc,
+      permissions: {
+        spotTrading: !!permissions.spotTrading,
+        futuresTrading: !!permissions.futuresTrading,
+        withdrawals: false,
+      },
+      status: "connected",
+      lastVerifiedAt: new Date(),
+      lastError: undefined,
+    };
+    if (passphraseEnc) {
+      update.passphraseEnc = passphraseEnc;
+    }
+
     const doc = await ExchangeCredential.findOneAndUpdate(
       { userId, exchange },
-      {
-        userId,
-        exchange,
-        apiKeyEnc,
-        apiSecretEnc,
-        ...(passphraseEnc ? { passphraseEnc } : {}),
-        permissions: {
-          spotTrading: !!permissions.spotTrading,
-          futuresTrading: !!permissions.futuresTrading,
-          withdrawals: false,
-        },
-        status: "connected",
-        lastVerifiedAt: new Date(),
-        lastError: undefined,
-      },
+      update,
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
-    // Sync exchange USDT capital → VIP levels (no in-app payment)
     let capitalResult = null;
     let capitalError = null;
     try {
@@ -176,9 +198,6 @@ const connectExchange = async (req, res) => {
   }
 };
 
-/**
- * GET /api/exchanges
- */
 const listExchanges = async (req, res) => {
   try {
     const docs = await ExchangeCredential.find({ userId: req.user._id }).select(
@@ -197,11 +216,6 @@ const listExchanges = async (req, res) => {
   }
 };
 
-/**
- * POST /api/exchanges/sync-capital
- * Re-read balances from all (or one) connected exchange(s) and update VIP capital.
- * body: { exchange? }
- */
 const syncCapital = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -247,11 +261,8 @@ const syncCapital = async (req, res) => {
         perExchange.find((p) => p.exchange === req.body.exchange && p.ok)) ||
       perExchange.find((p) => p.ok);
 
-    // If single exchange requested, use that capital; else sum all
     const amount =
-      req.body?.exchange && primary
-        ? primary.capital
-        : totalCapital;
+      req.body?.exchange && primary ? primary.capital : totalCapital;
 
     const capitalResult = await setExchangeCapital({
       userId,
@@ -278,9 +289,6 @@ const syncCapital = async (req, res) => {
   }
 };
 
-/**
- * DELETE /api/exchanges/:exchange
- */
 const disconnectExchange = async (req, res) => {
   try {
     const { exchange } = req.params;
@@ -289,7 +297,6 @@ const disconnectExchange = async (req, res) => {
       exchange,
     });
 
-    // Recalc capital from remaining connections
     const remaining = await ExchangeCredential.find({
       userId: req.user._id,
       status: "connected",
@@ -303,14 +310,14 @@ const disconnectExchange = async (req, res) => {
         note: "All exchanges disconnected — capital reset",
       });
     } else {
-      // Best-effort re-sync remaining
       try {
-        req.body = {};
-        // inline light resync
         let total = 0;
         let primaryEx = null;
         for (const doc of remaining) {
-          const creds = await getDecryptedCredentials(req.user._id, doc.exchange);
+          const creds = await getDecryptedCredentials(
+            req.user._id,
+            doc.exchange
+          );
           if (!creds) continue;
           const c = await fetchCapitalFromExchange(doc.exchange, creds);
           total += c;
@@ -344,6 +351,7 @@ const disconnectExchange = async (req, res) => {
 module.exports = {
   connectExchange,
   listExchanges,
+  listCatalog,
   disconnectExchange,
   syncCapital,
   getDecryptedCredentials,

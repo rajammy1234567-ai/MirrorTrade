@@ -1,6 +1,3 @@
-/**
- * Mirrored position opened when user copies a trader (paper book, live prices).
- */
 const mongoose = require("mongoose");
 
 const copyPositionSchema = new mongoose.Schema(

@@ -35,11 +35,26 @@ export type Bot = {
   name: string;
   type: "Grid" | "DCA";
   pair: string;
+  /** Spot vs Futures book for Bot tab filters */
+  market: "Spot" | "Futures";
   running: boolean;
+  /** Fully stopped (shows under Stopped tab); paused bots stay under Running */
+  stopped?: boolean;
+  /** How the bot was closed — Stopped tab sub-filter */
+  stopMode?: "Normally" | "Automatically";
+  /** ISO-ish display time when bot was stopped (Record tab) */
+  stoppedAt?: string;
   runtime: string;
   pnl: number;
   pnlPct: number;
   investment: number;
+  /** Open position size (quote units) */
+  position?: number;
+  unrealizedPnl?: number;
+  /** Futures side when market is Futures */
+  side?: "long" | "short";
+  /** Hours since last fill — used for Last 24H filter */
+  lastActiveHours?: number;
 };
 
 export type Signal = {
@@ -224,22 +239,83 @@ export const bots: Bot[] = [
     name: "BTC Grid Bot",
     type: "Grid",
     pair: "BTC/USDT",
+    market: "Spot",
     running: true,
     runtime: "3d 14h",
     pnl: 234.5,
     pnlPct: 4.7,
     investment: 5000,
+    position: 0.012,
+    unrealizedPnl: 18.4,
+    lastActiveHours: 2,
   },
   {
     id: "b2",
     name: "ETH DCA Bot",
     type: "DCA",
     pair: "ETH/USDT",
+    market: "Spot",
     running: true,
     runtime: "7d 2h",
     pnl: 89.2,
     pnlPct: 2.1,
     investment: 4200,
+    position: 1.25,
+    unrealizedPnl: 6.8,
+    lastActiveHours: 8,
+  },
+  {
+    id: "b3",
+    name: "SOL Futures Grid",
+    type: "Grid",
+    pair: "SOL/USDT",
+    market: "Futures",
+    side: "long",
+    running: true,
+    runtime: "1d 6h",
+    pnl: 39.295,
+    pnlPct: 3.9,
+    investment: 1000,
+    position: 12,
+    unrealizedPnl: 12.1,
+    lastActiveHours: 1,
+  },
+  {
+    id: "b4",
+    name: "XRP Grid Bot",
+    type: "Grid",
+    pair: "XRP/USDT",
+    market: "Spot",
+    running: false,
+    stopped: true,
+    stopMode: "Normally",
+    stoppedAt: "2026-07-18 14:22",
+    runtime: "12d 4h",
+    pnl: 156.0,
+    pnlPct: 5.2,
+    investment: 3000,
+    position: 0,
+    unrealizedPnl: 0,
+    lastActiveHours: 120,
+  },
+  {
+    id: "b5",
+    name: "BNB DCA Bot",
+    type: "DCA",
+    pair: "BNB/USDT",
+    market: "Futures",
+    side: "short",
+    running: false,
+    stopped: true,
+    stopMode: "Automatically",
+    stoppedAt: "2026-07-20 09:05",
+    runtime: "5d 9h",
+    pnl: -42.5,
+    pnlPct: -1.4,
+    investment: 2800,
+    position: 0,
+    unrealizedPnl: 0,
+    lastActiveHours: 72,
   },
 ];
 
@@ -337,124 +413,152 @@ export const portfolio = {
   chartStart: 8960,
 };
 
-export const exchanges = [
+/**
+ * Supported CEX catalog for API Connect.
+ * `id` must match server ExchangeCredential.exchange / serviceMap keys.
+ */
+export type ExchangeCatalogItem = {
+  id: string;
+  name: string;
+  short: string;
+  color: string;
+  domain: string;
+  spot: string;
+  futures: string;
+  tags: string[];
+  hot?: boolean;
+  quick?: boolean;
+  needsPassphrase?: boolean;
+  passphraseLabel?: string;
+  latestListing?: string;
+  latestListingDate?: string;
+  statusHint?: string;
+  quote?: "USDT" | "USDC" | "BOTH";
+};
+
+export const exchanges: ExchangeCatalogItem[] = [
   {
     id: "bingx",
     name: "BingX",
-    short: "BINGX",
+    short: "BX",
     color: "#2562FF",
-    logo: "https://www.google.com/s2/favicons?sz=128&domain=bingx.com",
+    domain: "bingx.com",
     spot: "403",
     futures: "271",
     tags: ["USDT"],
-    connected: true,
-    status: "API is normal,but only enable futures.",
-    isProtected: true,
+    statusHint: "API is normal,but only enable futures.",
+    quote: "BOTH",
   },
   {
     id: "binance",
     name: "Binance",
-    short: "BINANCE",
+    short: "BN",
     color: "#F0B90B",
-    logo: "https://www.google.com/s2/favicons?sz=128&domain=binance.com",
+    domain: "binance.com",
     spot: "423",
     futures: "636",
     tags: ["USDT"],
     hot: true,
     latestListing: "SKHY/USDT",
     latestListingDate: "2026-07-13",
-    connected: false,
+    quote: "BOTH",
   },
   {
     id: "okx",
     name: "OKX",
     short: "OKX",
-    color: "#FFFFFF",
-    logo: "https://www.google.com/s2/favicons?sz=128&domain=okx.com",
+    color: "#111111",
+    domain: "okx.com",
     spot: "286",
     futures: "392",
     tags: ["USDT", "Quick"],
+    quick: true,
+    needsPassphrase: true,
+    passphraseLabel: "Passphrase",
     latestListing: "SKHY/USDT",
     latestListingDate: "2026-07-13",
-    connected: false,
+    quote: "BOTH",
   },
   {
     id: "bybit",
     name: "Bybit",
-    short: "BYBIT",
+    short: "BYB",
     color: "#F7A600",
-    logo: "https://www.google.com/s2/favicons?sz=128&domain=bybit.com",
+    domain: "bybit.com",
     spot: "383",
     futures: "594",
     tags: ["USDT", "Quick"],
-    connected: false,
+    quick: true,
+    quote: "BOTH",
   },
   {
     id: "mexc",
     name: "MEXC",
-    short: "MEXC",
+    short: "MX",
     color: "#1672F8",
-    logo: "https://www.google.com/s2/favicons?sz=128&domain=mexc.com",
+    domain: "mexc.com",
     spot: "580",
     futures: "468",
     tags: ["USDT"],
     latestListing: "JUGGERNAUT/USDT",
     latestListingDate: "2026-07-14",
-    connected: false,
+    quote: "BOTH",
   },
   {
     id: "bitmart",
     name: "BitMart",
-    short: "BITMART",
+    short: "BM",
     color: "#03E0B5",
-    logo: "https://www.google.com/s2/favicons?sz=128&domain=bitmart.com",
+    domain: "bitmart.com",
     spot: "359",
     futures: "193",
     tags: ["USDT"],
-    connected: false,
+    needsPassphrase: true,
+    passphraseLabel: "API Memo",
+    quote: "USDT",
   },
   {
     id: "bitfinex",
     name: "Bitfinex",
-    short: "BITFINEX",
+    short: "BFX",
     color: "#00A478",
-    logo: "https://www.google.com/s2/favicons?sz=128&domain=bitfinex.com",
+    domain: "bitfinex.com",
     spot: "28",
     futures: "52",
     tags: ["USDT"],
-    connected: false,
+    quote: "USDT",
   },
   {
-    id: "krakenspot",
+    id: "kraken",
     name: "Kraken Spot",
-    short: "KRAKEN",
+    short: "KR",
     color: "#5741D9",
-    logo: "https://www.google.com/s2/favicons?sz=128&domain=kraken.com",
+    domain: "kraken.com",
     spot: "29",
     futures: "--",
     tags: ["USDT"],
-    connected: false,
+    quote: "BOTH",
   },
   {
-    id: "krakenfutures",
+    id: "kraken_futures",
     name: "Kraken Futures",
-    short: "KRAKEN",
+    short: "KR",
     color: "#5741D9",
-    logo: "https://www.google.com/s2/favicons?sz=128&domain=kraken.com",
+    domain: "kraken.com",
     spot: "--",
     futures: "99",
     tags: ["USDT"],
-    connected: false,
+    quote: "USDT",
   },
   {
-    id: "binanceus",
+    id: "binance_us",
     name: "Binance US",
-    short: "BINUS",
+    short: "BN",
     color: "#F0B90B",
-    logo: "https://www.google.com/s2/favicons?sz=128&domain=binance.us",
+    domain: "binance.us",
     spot: "154",
     futures: "--",
     tags: ["USDT"],
-    connected: false,
-  }
+    quote: "USDT",
+  },
 ];

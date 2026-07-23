@@ -13,7 +13,7 @@ import { colors } from "../theme/colors";
 type Props = NativeStackScreenProps<RootStackParamList, "BotDetail">;
 
 export default function BotDetailScreen({ route, navigation }: Props) {
-  const { bots, pauseBot, stopBot } = useAppData();
+  const { bots, pauseBot, stopBot, resumeStoppedBot } = useAppData();
   const bot = bots.find((b) => b.id === route.params.botId);
 
   if (!bot) {
@@ -33,34 +33,55 @@ export default function BotDetailScreen({ route, navigation }: Props) {
   return (
     <Screen
       footer={
-        <View style={styles.footerRow}>
-          <View style={{ flex: 1 }}>
-            <GradientButton
-              label={bot.running ? "Pause Bot" : "Resume Bot"}
-              variant="ghost"
-              onPress={() => pauseBot(bot.id)}
-            />
+        bot.stopped ? (
+          <View style={styles.footerRow}>
+            <View style={{ flex: 1 }}>
+              <GradientButton
+                label="Back"
+                variant="ghost"
+                onPress={() => navigation.goBack()}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <GradientButton
+                label="Restart Bot"
+                onPress={() => {
+                  resumeStoppedBot(bot.id);
+                  navigation.goBack();
+                }}
+              />
+            </View>
           </View>
-          <View style={{ flex: 1 }}>
-            <GradientButton
-              label="Stop Bot"
-              variant="danger"
-              onPress={() => {
-                Alert.alert("Stop bot", `Stop ${bot.name}?`, [
-                  { text: "Cancel", style: "cancel" },
-                  {
-                    text: "Stop",
-                    style: "destructive",
-                    onPress: () => {
-                      stopBot(bot.id);
-                      navigation.goBack();
+        ) : (
+          <View style={styles.footerRow}>
+            <View style={{ flex: 1 }}>
+              <GradientButton
+                label={bot.running ? "Pause Bot" : "Resume Bot"}
+                variant="ghost"
+                onPress={() => pauseBot(bot.id)}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <GradientButton
+                label="Stop Bot"
+                variant="danger"
+                onPress={() => {
+                  Alert.alert("Stop bot", `Stop ${bot.name}?`, [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Stop",
+                      style: "destructive",
+                      onPress: () => {
+                        stopBot(bot.id);
+                        navigation.goBack();
+                      },
                     },
-                  },
-                ]);
-              }}
-            />
+                  ]);
+                }}
+              />
+            </View>
           </View>
-        </View>
+        )
       }
     >
       <View style={styles.nav}>
@@ -81,26 +102,32 @@ export default function BotDetailScreen({ route, navigation }: Props) {
         </View>
         <Text style={styles.name}>{bot.name}</Text>
         <Text style={styles.meta}>
-          {bot.type} · {bot.pair} · {bot.runtime}
+          {bot.type} · {bot.market ?? "Spot"} · {bot.pair} · {bot.runtime}
         </Text>
         <View
           style={[
             styles.badge,
             {
-              backgroundColor: bot.running
-                ? "rgba(0,208,132,0.12)"
-                : "rgba(139,147,167,0.15)",
+              backgroundColor: bot.stopped
+                ? "rgba(255, 59, 92, 0.12)"
+                : bot.running
+                  ? "rgba(0,208,132,0.12)"
+                  : "rgba(139,147,167,0.15)",
             },
           ]}
         >
           <Text
             style={{
-              color: bot.running ? colors.profit : colors.muted,
+              color: bot.stopped
+                ? colors.loss
+                : bot.running
+                  ? colors.profit
+                  : colors.muted,
               fontWeight: "700",
               fontSize: 12,
             }}
           >
-            {bot.running ? "RUNNING" : "PAUSED"}
+            {bot.stopped ? "STOPPED" : bot.running ? "RUNNING" : "PAUSED"}
           </Text>
         </View>
       </View>

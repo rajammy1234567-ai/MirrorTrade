@@ -25,6 +25,7 @@ const ROUTE_CATALOG = [
   { method: "GET", path: "/api/plans/me", access: "private" },
   { method: "GET", path: "/api/plans/transactions", access: "private" },
   { method: "POST", path: "/api/plans/deposit", access: "private" },
+  { method: "GET", path: "/api/exchanges/catalog", access: "public" },
   { method: "GET", path: "/api/exchanges", access: "private" },
   { method: "POST", path: "/api/exchanges/connect", access: "private" },
   { method: "POST", path: "/api/exchanges/sync-capital", access: "private" },

@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -24,14 +24,26 @@ import {
   shareMyInvite,
   type InvitePayload,
 } from "../utils/shareInvite";
+import { colors } from "../theme/colors";
 
-const APP_BG = "#1A1B26";
-const CARD_BG = "#242633";
-const CARD_BORDER = "#2E3142";
-const YELLOW = "#FFD143";
-const MUTED = "#94A3B8";
-const TEXT = "#F8FAFC";
+const APP_BG = colors.bg;
+const CARD_BG = colors.card;
+const CARD_BORDER = colors.border;
+const YELLOW = colors.primary;
+const MUTED = colors.muted;
+const TEXT = colors.text;
 const DIRECT_TARGET = 3;
+
+const MODE_TABS = ["Automated", "Signal", "Manual"] as const;
+const PERIODS = ["90 Days", "30 Days", "15 Days", "1 Day"] as const;
+
+/** Scale 30D ROI for other periods (client-side display until API filters exist) */
+const PERIOD_SCALE: Record<(typeof PERIODS)[number], number> = {
+  "90 Days": 2.4,
+  "30 Days": 1,
+  "15 Days": 0.55,
+  "1 Day": 0.08,
+};
 
 const gridActions = [
   { label: "VIP Plans", icon: "crown", route: "TeamRank" },
@@ -44,6 +56,8 @@ const gridActions = [
   { label: "More", icon: "th-large", route: "TradingPrefs" },
 ];
 
+const RANK_COLORS = ["#FFD143", "#C0C7D4", "#CD7F32", MUTED] as const;
+
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { user, refreshUser } = useAuth();
@@ -54,6 +68,8 @@ export default function HomeScreen() {
   const [invite, setInvite] = useState<InvitePayload | null>(null);
   const [sharing, setSharing] = useState(false);
   const [traders, setTraders] = useState<ApiTrader[]>([]);
+  const [modeTab, setModeTab] = useState<(typeof MODE_TABS)[number]>("Automated");
+  const [period, setPeriod] = useState<(typeof PERIODS)[number]>("30 Days");
 
   const goRoot = useCallback(
     (screen: keyof RootStackParamList, params?: object) => {
@@ -133,6 +149,34 @@ export default function HomeScreen() {
   const progressPct = Math.min(100, (progressCount / DIRECT_TARGET) * 100);
   const codeLabel = invite?.referralCode || user?.referralCode || "—";
   const rewardsEarned = invite?.stats?.rewardsEarned ?? 0;
+
+  /** Ranked list for current mode + period */
+  const rankedTraders = useMemo(() => {
+    const scale = PERIOD_SCALE[period];
+    let list = [...traders];
+
+    // Light mode filter (seed data has mixed styles — shuffle order by mode)
+    if (modeTab === "Signal") {
+      list = list.slice().sort((a, b) => b.winRate - a.winRate);
+    } else if (modeTab === "Manual") {
+      list = list.slice().sort((a, b) => b.copiers - a.copiers);
+    } else {
+      list = list.slice().sort((a, b) => b.roi30d - a.roi30d);
+    }
+
+    return list.map((t, i) => ({
+      ...t,
+      rank: i + 1,
+      displayRoi: Math.round(t.roi30d * scale * 10) / 10,
+    }));
+  }, [traders, modeTab, period]);
+
+  const modeHint =
+    modeTab === "Automated"
+      ? "Automated data includes both AI Brain and KOL Brain."
+      : modeTab === "Signal"
+        ? "Signal traders publish setups you can copy with one tap."
+        : "Manual style leaders ranked by copier activity.";
 
   return (
     <View style={[styles.container, { paddingTop: Math.max(insets.top, 12) }]}>
@@ -322,49 +366,127 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        {/* TOP TRADERS — clean list, no ranking medals/badges */}
+        {/* RANKING — mode + period + #1 #2 #3 */}
         <View style={styles.section}>
           <View style={styles.sectionHead}>
-            <Text style={styles.sectionTitle}>Top traders</Text>
+            <Text style={styles.sectionTitle}>Ranking</Text>
             <Pressable onPress={() => tabNav.navigate("Discover")}>
               <Text style={styles.sectionLink}>See all</Text>
             </Pressable>
           </View>
 
-          {traders.length === 0 ? (
+          {/* Automated / Signal / Manual */}
+          <View style={styles.modeTabs}>
+            {MODE_TABS.map((tab) => {
+              const active = modeTab === tab;
+              return (
+                <Pressable
+                  key={tab}
+                  style={[styles.modeTab, active && styles.modeTabActive]}
+                  onPress={() => setModeTab(tab)}
+                >
+                  <Text
+                    style={[styles.modeTabText, active && styles.modeTabTextActive]}
+                  >
+                    {tab}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <Text style={styles.modeHint}>{modeHint}</Text>
+
+          {/* Time period */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.periodRow}
+          >
+            {PERIODS.map((p) => {
+              const active = period === p;
+              return (
+                <Pressable
+                  key={p}
+                  style={[styles.periodPill, active && styles.periodPillActive]}
+                  onPress={() => setPeriod(p)}
+                >
+                  <Text
+                    style={[
+                      styles.periodText,
+                      active && styles.periodTextActive,
+                    ]}
+                  >
+                    {p}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          <View style={styles.listHeader}>
+            <Text style={styles.listCol}>Rank · Trader</Text>
+            <Text style={styles.listCol}>ROI ({period.replace(" Days", "D").replace(" Day", "D")})</Text>
+          </View>
+
+          {rankedTraders.length === 0 ? (
             <View style={styles.emptyTraders}>
               <Text style={styles.emptyText}>Loading traders…</Text>
             </View>
           ) : (
-            traders.map((t) => (
-              <Pressable
-                key={t.id}
-                style={styles.traderRow}
-                onPress={() => goRoot("TraderDetail", { traderId: t.id })}
-              >
-                <View style={styles.traderAvatar}>
-                  <Text style={styles.traderAvatarText}>{t.avatar}</Text>
-                </View>
-                <View style={styles.traderMid}>
-                  <Text style={styles.traderName}>{t.name}</Text>
-                  <Text style={styles.traderMeta}>
-                    {t.winRate}% win · {t.copiers} copiers
-                  </Text>
-                </View>
-                <View style={styles.traderRight}>
-                  <Text
+            rankedTraders.map((t) => {
+              const rankColor =
+                RANK_COLORS[Math.min(t.rank - 1, RANK_COLORS.length - 1)];
+              return (
+                <Pressable
+                  key={t.id}
+                  style={styles.traderRow}
+                  onPress={() => goRoot("TraderDetail", { traderId: t.id })}
+                >
+                  <View
                     style={[
-                      styles.traderRoi,
-                      { color: t.roi30d >= 0 ? "#22C55E" : "#FF3B5C" },
+                      styles.rankBadge,
+                      t.rank <= 3 && {
+                        backgroundColor: `${rankColor}22`,
+                        borderColor: `${rankColor}66`,
+                      },
                     ]}
                   >
-                    {t.roi30d >= 0 ? "+" : ""}
-                    {t.roi30d}%
-                  </Text>
-                  <Text style={styles.traderRoiHint}>30D</Text>
-                </View>
-              </Pressable>
-            ))
+                    <Text
+                      style={[
+                        styles.rankNum,
+                        t.rank <= 3 && { color: rankColor },
+                      ]}
+                    >
+                      {t.rank}
+                    </Text>
+                  </View>
+                  <View style={styles.traderAvatar}>
+                    <Text style={styles.traderAvatarText}>{t.avatar}</Text>
+                  </View>
+                  <View style={styles.traderMid}>
+                    <Text style={styles.traderName}>{t.name}</Text>
+                    <Text style={styles.traderMeta}>
+                      {t.winRate}% win · {t.copiers} copiers
+                    </Text>
+                  </View>
+                  <View style={styles.traderRight}>
+                    <Text
+                      style={[
+                        styles.traderRoi,
+                        {
+                          color:
+                            t.displayRoi >= 0 ? colors.profit : colors.loss,
+                        },
+                      ]}
+                    >
+                      {t.displayRoi >= 0 ? "+" : ""}
+                      {t.displayRoi}%
+                    </Text>
+                    <Text style={styles.traderRoiHint}>#{t.rank}</Text>
+                  </View>
+                </Pressable>
+              );
+            })
           )}
         </View>
       </ScrollView>
@@ -637,7 +759,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  /* Traders */
+  /* Ranking */
   section: {
     marginTop: 22,
     paddingHorizontal: 16,
@@ -658,6 +780,77 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
   },
+  modeTabs: {
+    flexDirection: "row",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: CARD_BORDER,
+    backgroundColor: "rgba(0,0,0,0.2)",
+    padding: 4,
+    gap: 4,
+  },
+  modeTab: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 11,
+    alignItems: "center",
+  },
+  modeTabActive: {
+    backgroundColor: YELLOW,
+  },
+  modeTabText: {
+    color: MUTED,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  modeTabTextActive: {
+    color: "#111",
+    fontWeight: "800",
+  },
+  modeHint: {
+    marginTop: 10,
+    color: MUTED,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  periodRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 12,
+    paddingRight: 4,
+  },
+  periodPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: CARD_BORDER,
+    backgroundColor: CARD_BG,
+  },
+  periodPillActive: {
+    backgroundColor: "#F1F5F9",
+    borderColor: "#F1F5F9",
+  },
+  periodText: {
+    color: MUTED,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  periodTextActive: {
+    color: "#0F172A",
+  },
+  listHeader: {
+    marginTop: 16,
+    marginBottom: 8,
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  listCol: {
+    color: MUTED,
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
   emptyTraders: {
     paddingVertical: 20,
     alignItems: "center",
@@ -676,10 +869,26 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 10,
   },
+  rankBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: CARD_BORDER,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+  },
+  rankNum: {
+    color: MUTED,
+    fontSize: 13,
+    fontWeight: "900",
+  },
   traderAvatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     backgroundColor: "rgba(255,209,67,0.12)",
     alignItems: "center",
     justifyContent: "center",
@@ -687,11 +896,11 @@ const styles = StyleSheet.create({
   traderAvatarText: {
     color: YELLOW,
     fontWeight: "800",
-    fontSize: 13,
+    fontSize: 12,
   },
   traderMid: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: 10,
   },
   traderName: {
     color: TEXT,
@@ -714,6 +923,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     color: MUTED,
     fontSize: 10,
-    fontWeight: "600",
+    fontWeight: "700",
   },
 });
+

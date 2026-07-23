@@ -2,12 +2,16 @@ const express = require("express");
 const {
   connectExchange,
   listExchanges,
+  listCatalog,
   disconnectExchange,
   syncCapital,
 } = require("../controllers/exchangeController");
 const { protect } = require("../middleware/auth");
 
 const router = express.Router();
+
+// Catalog is public (no secrets) — helps client render supported CEX list
+router.get("/catalog", listCatalog);
 
 router.use(protect);
 

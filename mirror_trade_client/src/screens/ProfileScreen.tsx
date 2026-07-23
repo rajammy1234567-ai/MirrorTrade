@@ -32,17 +32,18 @@ import { useAppData } from "../context/AppDataContext";
 import { RootStackParamList } from "../navigation/types";
 import { colors } from "../theme/colors";
 
-const BG = "#12141C";
-const CARD = "#1C1F2A";
-const CARD_ELEVATED = "#242836";
-const BORDER = "#2A2F3D";
-const MUTED = "#8B93A7";
-const TEXT = "#F4F6FB";
-const YELLOW = "#F5C518";
+// Align Assets tab with Home theme tokens
+const BG = colors.bg;
+const CARD = colors.card;
+const CARD_ELEVATED = colors.elevated;
+const BORDER = colors.border;
+const MUTED = colors.muted;
+const TEXT = colors.text;
+const YELLOW = colors.primary;
 const MINT = "#B8F5D4";
 const MINT_BG = "#1A2E28";
-const BLUE_CARD = "#1A2744";
-const BLUE_TEXT = "#A8C5FF";
+const BLUE_CARD = colors.elevated;
+const BLUE_TEXT = colors.brand;
 
 const TYPE_LABELS: Record<string, string> = {
   DEPOSIT: "Capital update",

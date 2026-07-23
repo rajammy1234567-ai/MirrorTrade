@@ -369,7 +369,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: 10,
   },
-  tabActive: { backgroundColor: colors.primarySoft },
+  tabActive: {
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1,
+    borderColor: "rgba(255,209,67,0.25)",
+  },
   tabText: { fontSize: 13, fontWeight: "600", color: colors.muted },
   tabTextActive: { color: colors.primary, fontWeight: "700" },
   list: { marginTop: 12 },
