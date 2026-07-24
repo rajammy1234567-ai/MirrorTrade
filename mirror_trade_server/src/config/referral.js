@@ -2,7 +2,7 @@
  * Referral program constants (overridable via env).
  */
 module.exports = {
-  /** Wallet credit (₹) for referrer AND new user when referral completes */
+  /** Wallet credit (USD / USDT) for referrer AND new user when referral completes */
   REWARD_AMOUNT: Number(process.env.REFERRAL_REWARD_AMOUNT) || 50,
 
   /** Max new signups that may use a given code per calendar day (UTC) */

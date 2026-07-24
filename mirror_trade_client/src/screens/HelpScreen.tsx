@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -11,20 +11,24 @@ type Props = NativeStackScreenProps<RootStackParamList, "Help">;
 
 const faqs = [
   {
+    q: "How do I deposit?",
+    a: "Open Deposit, scan the BNB QR, send BNB on BSC (BEP-20). After payment, submit amount + TxHash. Balance is credited as USDT (USD).",
+  },
+  {
+    q: "How do VIP levels work?",
+    a: "Use your USDT deposit balance to buy T-VIP / C-VIP levels at the listed USD prices. Your profile shows the ranks you unlock.",
+  },
+  {
+    q: "What can I withdraw?",
+    a: "Only app earnings (referrals, bonuses, profit share). Deposit USDT used for level purchase is not withdrawable.",
+  },
+  {
+    q: "What is exchange API for?",
+    a: "Connect a trade-only API key to load complete trading statistics (P/L, positions, win rate). VIP levels do not use exchange capital.",
+  },
+  {
     q: "How does copy trading work?",
-    a: "You allocate INR to a trader. When they open or close positions, MirrorTrade mirrors the trade size (with your multiplier) on your connected exchange.",
-  },
-  {
-    q: "Is withdrawal access required?",
-    a: "Never. We only need read + trade API permissions. Withdrawals stay disabled so funds remain on your exchange.",
-  },
-  {
-    q: "What is max drawdown stop?",
-    a: "If copy equity drops by your set percentage, open positions are closed and new copies pause until you resume.",
-  },
-  {
-    q: "Grid vs DCA bots?",
-    a: "Grid places buys/sells across a range. DCA invests fixed amounts on a schedule regardless of short-term price noise.",
+    a: "You allocate USD to a trader. When they open or close positions, MirrorTrade mirrors the trade size (with your multiplier) on paper/live marks.",
   },
 ];
 

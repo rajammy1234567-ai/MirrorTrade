@@ -22,6 +22,8 @@ import TradingPrefsScreen from "../screens/TradingPrefsScreen";
 import HelpScreen from "../screens/HelpScreen";
 import ReferralScreen from "../screens/ReferralScreen";
 import TeamRankScreen from "../screens/TeamRankScreen";
+import DepositScreen from "../screens/DepositScreen";
+import WithdrawScreen from "../screens/WithdrawScreen";
 
 const NativeStack = createNativeStackNavigator<RootStackParamList>();
 const WebStack = createStackNavigator<RootStackParamList>();
@@ -60,6 +62,8 @@ const screens: {
   { name: "Help", component: HelpScreen },
   { name: "Referral", component: ReferralScreen },
   { name: "TeamRank", component: TeamRankScreen },
+  { name: "Deposit", component: DepositScreen },
+  { name: "Withdraw", component: WithdrawScreen },
 ];
 
 function NativeAppStack() {

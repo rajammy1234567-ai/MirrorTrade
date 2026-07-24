@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+﻿import React, { useRef, useState } from "react";
 import {
   Alert,
   Pressable,
@@ -21,7 +21,7 @@ type Props = NativeStackScreenProps<RootStackParamList, "TwoFA">;
 /**
  * Verification screen.
  * Demo: any 6-digit code calls POST /api/auth/verify, which marks the user
- * verified and credits referral rewards (₹50 each side) once if pending.
+ * verified and credits referral rewards ($50 each side) once if pending.
  * Production: replace with Twilio Verify / Firebase phone OTP.
  */
 export default function TwoFAScreen({ navigation }: Props) {
@@ -64,7 +64,7 @@ export default function TwoFAScreen({ navigation }: Props) {
         Alert.alert(
           "Welcome bonus!",
           result.message ||
-            `You received ₹${result.rewardAmount} referral reward.`
+            `You received $${result.rewardAmount} referral reward.`
         );
       }
       goNext();

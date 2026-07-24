@@ -5,8 +5,8 @@ const tradeRoutes = require("./tradeRoutes");
 const planRoutes = require("./planRoutes");
 const exchangeRoutes = require("./exchangeRoutes");
 const referralRoutes = require("./referralRoutes");
-// Payments optional — VIP capital primarily from exchange sync
 const paymentRoutes = require("./paymentRoutes");
+const walletRoutes = require("./walletRoutes");
 
 const router = express.Router();
 
@@ -24,7 +24,13 @@ const ROUTE_CATALOG = [
   { method: "GET", path: "/api/plans", access: "public" },
   { method: "GET", path: "/api/plans/me", access: "private" },
   { method: "GET", path: "/api/plans/transactions", access: "private" },
+  { method: "POST", path: "/api/plans/purchase", access: "private" },
   { method: "POST", path: "/api/plans/deposit", access: "private" },
+  { method: "GET", path: "/api/wallet", access: "private" },
+  { method: "GET", path: "/api/wallet/deposit-info", access: "private" },
+  { method: "POST", path: "/api/wallet/deposit", access: "private" },
+  { method: "POST", path: "/api/wallet/purchase-level", access: "private" },
+  { method: "POST", path: "/api/wallet/withdraw", access: "private" },
   { method: "GET", path: "/api/exchanges/catalog", access: "public" },
   { method: "GET", path: "/api/exchanges", access: "private" },
   { method: "POST", path: "/api/exchanges/connect", access: "private" },
@@ -69,6 +75,7 @@ router.use("/referrals", referralRoutes);
 router.use("/admin", adminRoutes);
 router.use("/trade", tradeRoutes);
 router.use("/plans", planRoutes);
+router.use("/wallet", walletRoutes);
 router.use("/exchanges", exchangeRoutes);
 router.use("/payments", paymentRoutes);
 

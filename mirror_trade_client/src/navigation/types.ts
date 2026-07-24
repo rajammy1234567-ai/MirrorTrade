@@ -16,6 +16,8 @@ export type RootStackParamList = {
   Help: undefined;
   Referral: undefined;
   TeamRank: { focus?: "T-VIP" | "C-VIP" } | undefined;
+  Deposit: undefined;
+  Withdraw: undefined;
 };
 
 export type MainTabParamList = {

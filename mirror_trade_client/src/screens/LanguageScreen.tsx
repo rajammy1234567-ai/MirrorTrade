@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -10,7 +10,7 @@ import { colors } from "../theme/colors";
 type Props = NativeStackScreenProps<RootStackParamList, "Language">;
 
 const languages = ["English", "हिन्दी", "Español", "Português", "中文"];
-const regions = ["Global (USDT)", "India (INR)", "EU (EUR)", "UK (GBP)"];
+const regions = ["Global (USDT)", "Global (USD)"];
 
 export default function LanguageScreen({ navigation }: Props) {
   const { settings, updateSettings } = useAppData();

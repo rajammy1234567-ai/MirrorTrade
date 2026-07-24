@@ -19,6 +19,8 @@ const transactionSchema = new mongoose.Schema(
       type: String,
       enum: [
         "DEPOSIT",
+        "BNB_DEPOSIT",
+        "LEVEL_PURCHASE",
         "T_VIP_PROFIT_SHARE",
         "SAME_LEVEL_BONUS",
         "GLOBAL_DEV_BONUS",

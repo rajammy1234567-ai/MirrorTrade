@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+﻿import React, { useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
@@ -383,7 +383,7 @@ export default function BotsScreen() {
                     Invested
                   </Text>
                   <Text style={styles.statVal}>
-                    ₹{Math.round(stats.totalInvest).toLocaleString("en-IN")}
+                    ${Math.round(stats.totalInvest).toLocaleString("en-US")}
                   </Text>
                 </View>
               </View>
@@ -627,7 +627,7 @@ export default function BotsScreen() {
                         </Text>
                       </View>
                     </View>
-                    <PnlText value={bot.pnl} prefix="₹" size="sm" />
+                    <PnlText value={bot.pnl} prefix="$" size="sm" />
                   </View>
                   <View style={styles.recordBottom}>
                     <Text style={styles.recordTime}>
@@ -806,7 +806,7 @@ function BotRow({
 
         <View style={styles.botCols}>
           <View style={styles.botCol}>
-            <PnlText value={bot.pnl} prefix="₹" size="sm" />
+            <PnlText value={bot.pnl} prefix="$" size="sm" />
           </View>
           <View style={styles.botCol}>
             <Text style={styles.botColVal}>
@@ -819,7 +819,7 @@ function BotRow({
             {mode === "stopped" ? (
               <PnlText value={bot.pnlPct} suffix="%" size="sm" />
             ) : (
-              <PnlText value={bot.unrealizedPnl ?? 0} prefix="₹" size="sm" />
+              <PnlText value={bot.unrealizedPnl ?? 0} prefix="$" size="sm" />
             )}
           </View>
         </View>
@@ -846,7 +846,7 @@ function BotRow({
           </Pressable>
           <View style={styles.investPill}>
             <Text style={styles.investText}>
-              ₹{bot.investment.toLocaleString("en-IN")}
+              ${bot.investment.toLocaleString("en-US")}
             </Text>
           </View>
         </View>
@@ -940,7 +940,7 @@ function sortBots(list: Bot[], key: SortKey, asc: boolean): Bot[] {
 
 function fmtNum(n: number) {
   if (Math.abs(n) >= 1000)
-    return n.toLocaleString("en-IN", { maximumFractionDigits: 2 });
+    return n.toLocaleString("en-US", { maximumFractionDigits: 2 });
   if (Number.isInteger(n)) return String(n);
   return n.toFixed(n < 1 && n !== 0 ? 4 : 2);
 }

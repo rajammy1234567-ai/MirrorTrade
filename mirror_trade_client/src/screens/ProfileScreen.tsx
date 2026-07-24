@@ -46,10 +46,13 @@ const BLUE_CARD = colors.elevated;
 const BLUE_TEXT = colors.brand;
 
 const TYPE_LABELS: Record<string, string> = {
-  DEPOSIT: "Capital update",
+  DEPOSIT: "Exchange stats update",
+  BNB_DEPOSIT: "BNB deposit (USDT)",
+  LEVEL_PURCHASE: "VIP level purchase",
   T_VIP_PROFIT_SHARE: "T-VIP Profit Share",
   SAME_LEVEL_BONUS: "Same Level Bonus",
   GLOBAL_DEV_BONUS: "Global Dev Bonus",
+  REFERRAL_REWARD: "Referral reward",
   WITHDRAWAL: "Withdrawal",
 };
 
@@ -94,8 +97,12 @@ export default function ProfileScreen() {
     }, [load])
   );
 
-  const capital = status?.exchangeCapital ?? status?.totalDeposit ?? user?.totalDeposit ?? 0;
-  const earnings = status?.walletBalance ?? user?.walletBalance ?? 0;
+  const levelCapital = status?.totalDeposit ?? user?.totalDeposit ?? 0;
+  const usdtBal = status?.usdtBalance ?? status?.depositBalance ?? user?.usdtBalance ?? 0;
+  const earnings =
+    status?.withdrawable ?? status?.walletBalance ?? user?.walletBalance ?? 0;
+  const exchangeCap =
+    status?.exchangeCapital ?? exchanges[0]?.lastCapital ?? user?.exchangeCapital ?? 0;
   const teamBiz = status?.teamBusiness ?? 0;
   const tVip = status?.tVipRank || user?.tVipRank || "NONE";
   const cVip = status?.cVipRank || user?.cVipRank || "NONE";
@@ -106,7 +113,7 @@ export default function ProfileScreen() {
     ? Math.max(0, Math.min(100, tProgressRaw))
     : 0;
   const primaryEx = exchanges[0]?.exchange || user?.primaryExchange || null;
-  const available = exchanges[0]?.lastCapital ?? capital;
+  const available = usdtBal;
 
   const mask = (n: number, decimals = 2) =>
     hideBal ? "****" : formatMoney(n, { decimals });
@@ -119,7 +126,7 @@ export default function ProfileScreen() {
     if (!exchanges.length && !exchangeConnected) {
       Alert.alert(
         "Connect exchange",
-        "VIP capital comes from your exchange API. Connect a trade-only key first.",
+        "Connect a trade-only API key to load trading statistics (P/L). VIP levels are bought with USDT deposits.",
         [
           { text: "Cancel", style: "cancel" },
           {
@@ -135,12 +142,12 @@ export default function ProfileScreen() {
       const res = await syncExchangeCapitalRequest();
       const cap = res.data.capital;
       Alert.alert(
-        "Account capital refreshed",
-        `Capital: ${formatMoney(cap.totalDeposit, { decimals: 2 })}\nT-VIP: ${cap.tVipRank}\nC-VIP: ${cap.cVipRank}`
+        "Trading stats refreshed",
+        `Exchange equity: ${formatMoney(cap.exchangeCapital ?? cap.totalDeposit, { decimals: 2 })} USDT\nVIP levels use purchased capital, not exchange balance.`
       );
       await load();
     } catch (err) {
-      Alert.alert("Refresh failed", getApiErrorMessage(err, "Could not sync capital"));
+      Alert.alert("Refresh failed", getApiErrorMessage(err, "Could not sync stats"));
     } finally {
       setSyncing(false);
     }
@@ -165,27 +172,12 @@ export default function ProfileScreen() {
     {
       icon: "arrow-down-circle-outline",
       label: "Deposit",
-      onPress: () =>
-        Alert.alert(
-          "Deposit on exchange",
-          "Funds stay on your exchange. Deposit there, then connect/sync API so VIP levels update.",
-          [
-            { text: "OK" },
-            {
-              text: "API Connect",
-              onPress: () => navigation.navigate("ExchangeConnect"),
-            },
-          ]
-        ),
+      onPress: () => navigation.navigate("Deposit"),
     },
     {
       icon: "arrow-up-circle-outline",
       label: "Withdraw",
-      onPress: () =>
-        Alert.alert(
-          "Withdraw on exchange",
-          "MirrorTrade never holds or withdraws funds. Withdraw from your exchange account only."
-        ),
+      onPress: () => navigation.navigate("Withdraw"),
     },
     {
       icon: "qr-code-outline",
@@ -282,7 +274,7 @@ export default function ProfileScreen() {
             <View style={[styles.barFill, { width: `${tProgress}%` }]} />
           </View>
           <Text style={styles.holdingsText}>
-            Capital: {mask(capital, 0)}
+            Level capital: {mask(levelCapital, 0)}
             {nextT
               ? `  →  ${formatMoney(nextT.minDeposit, { decimals: 0 })} for ${nextT.rank}`
               : "  ·  Max T-VIP reached"}
@@ -291,10 +283,10 @@ export default function ProfileScreen() {
           <View style={styles.statTrio}>
             <View style={styles.statCell}>
               <View style={styles.statHead}>
-                <Text style={styles.statName}>Capital</Text>
+                <Text style={styles.statName}>Level $</Text>
                 <Ionicons name="help-circle-outline" size={12} color={MUTED} />
               </View>
-              <Text style={styles.statVal}>{mask(capital, 0)}</Text>
+              <Text style={styles.statVal}>{mask(levelCapital, 0)}</Text>
             </View>
             <View style={styles.statCell}>
               <View style={styles.statHead}>
@@ -320,7 +312,7 @@ export default function ProfileScreen() {
         <View style={styles.balanceSection}>
           <View style={styles.balanceHead}>
             <View style={styles.statHead}>
-              <Text style={styles.sectionTitle}>Balance</Text>
+              <Text style={styles.sectionTitle}>Balance (USD)</Text>
               <Ionicons name="help-circle-outline" size={14} color={MUTED} />
             </View>
             <Pressable
@@ -341,14 +333,20 @@ export default function ProfileScreen() {
               <View style={styles.balChip}>
                 <Text style={styles.balChipText}>₮ USDT</Text>
               </View>
-              <Text style={styles.balAmount}>{mask(capital, 3)}</Text>
+              <Text style={styles.balAmount}>{mask(available, 2)}</Text>
+              <Text style={{ color: MUTED, fontSize: 10, marginTop: 4 }}>
+                Deposit · buy levels
+              </Text>
             </View>
             <View style={[styles.balCard, styles.balUsdc]}>
               <View style={[styles.balChip, styles.balChipBlue]}>
-                <Text style={[styles.balChipText, { color: BLUE_TEXT }]}>$ USDC</Text>
+                <Text style={[styles.balChipText, { color: BLUE_TEXT }]}>$ Earn</Text>
               </View>
               <Text style={[styles.balAmount, { color: BLUE_TEXT }]}>
-                {mask(0, 3)}
+                {mask(earnings, 2)}
+              </Text>
+              <Text style={{ color: MUTED, fontSize: 10, marginTop: 4 }}>
+                Withdrawable
               </Text>
             </View>
           </View>

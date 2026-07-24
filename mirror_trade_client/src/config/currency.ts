@@ -1,12 +1,12 @@
 /**
- * App display currency — switch here only.
+ * App display currency — USD / USDT only (no INR).
  * Values in API stay numeric; UI shows this symbol/code.
  */
-export const CURRENCY_SYMBOL = "₹";
-export const CURRENCY_CODE = "INR";
-export const CURRENCY_LABEL = "INR";
+export const CURRENCY_SYMBOL = "$";
+export const CURRENCY_CODE = "USD";
+export const CURRENCY_LABEL = "USDT";
 
-/** Format amount: ₹1,250 or ₹1,250.50 */
+/** Format amount: $1,250 or $1,250.50 */
 export function formatMoney(
   amount: number | string | null | undefined,
   opts?: { decimals?: number; signed?: boolean }
@@ -16,7 +16,7 @@ export function formatMoney(
   const decimals = opts?.decimals ?? (Number.isInteger(safe) ? 0 : 2);
   let abs: string;
   try {
-    abs = Math.abs(safe).toLocaleString("en-IN", {
+    abs = Math.abs(safe).toLocaleString("en-US", {
       minimumFractionDigits: decimals,
       maximumFractionDigits: decimals,
     });
@@ -31,11 +31,10 @@ export function formatMoney(
   return `${CURRENCY_SYMBOL}${abs}`;
 }
 
-/** Compact: ₹1.2k / ₹1.5L */
+/** Compact: $1.2k / $1.5M */
 export function formatMoneyCompact(n: number): string {
   const abs = Math.abs(n);
-  if (abs >= 1_00_00_000) return `${CURRENCY_SYMBOL}${(n / 1_00_00_000).toFixed(2)}Cr`;
-  if (abs >= 1_00_000) return `${CURRENCY_SYMBOL}${(n / 1_00_000).toFixed(2)}L`;
+  if (abs >= 1_000_000) return `${CURRENCY_SYMBOL}${(n / 1_000_000).toFixed(2)}M`;
   if (abs >= 1000) return `${CURRENCY_SYMBOL}${(n / 1000).toFixed(1)}k`;
   return formatMoney(n, { decimals: 0 });
 }

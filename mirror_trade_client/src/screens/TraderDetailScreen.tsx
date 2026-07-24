@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+﻿import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -210,7 +210,7 @@ export default function TraderDetailScreen({ route, navigation }: Props) {
                   {tr.side} · {tr.time}
                 </Text>
               </View>
-              <PnlText value={tr.pnl} prefix="₹" size="sm" />
+              <PnlText value={tr.pnl} prefix="$" size="sm" />
             </View>
           ))}
         </View>

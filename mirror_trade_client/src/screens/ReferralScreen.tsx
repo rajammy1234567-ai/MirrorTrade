@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+﻿import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -147,7 +147,7 @@ export default function ReferralScreen({ navigation }: Props) {
               {formatMoney(stats?.rewardsEarned ?? 0, { decimals: 0 })}
             </Text>
             <Text style={styles.earnSub}>
-              ₹{reward} for you + ₹{reward} for each friend after they verify
+              ${reward} for you + ${reward} for each friend after they verify
             </Text>
           </View>
 
@@ -194,7 +194,7 @@ export default function ReferralScreen({ navigation }: Props) {
               "Share your code or link via WhatsApp, SMS, or copy",
               "Friend signs up with your referral code",
               "They verify email/phone (OTP screen)",
-              `You both get ₹${reward} wallet credit instantly`,
+              `You both get $${reward} wallet credit instantly`,
             ].map((t, i) => (
               <View key={t} style={styles.step}>
                 <View style={styles.stepNum}>

@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+﻿import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -132,11 +132,11 @@ export default function ExchangeConnectScreen({ navigation }: Props) {
       const cap = res.data?.capital;
       const capErr = res.data?.capitalError;
       let msg =
-        "Exchange connected. Your funds stay on the exchange.\n\nVIP levels now use your exchange capital.";
+        "Exchange connected for trading statistics.\n\nVIP levels are bought with USDT (BNB deposit) — not exchange balance.";
       if (cap) {
-        msg += `\n\nCapital: ${formatMoney(cap.totalDeposit, { decimals: 2 })}\nT-VIP: ${cap.tVipRank}\nC-VIP: ${cap.cVipRank}`;
+        msg += `\n\nExchange equity: ${formatMoney(cap.exchangeCapital ?? 0, { decimals: 2 })} USDT`;
       } else if (capErr) {
-        msg += `\n\nCapital sync note: ${capErr}\nYou can retry “Sync capital”.`;
+        msg += `\n\nStats sync note: ${capErr}\nYou can retry “Sync”.`;
       }
 
       Alert.alert("Connected", msg, [
@@ -175,8 +175,8 @@ export default function ExchangeConnectScreen({ navigation }: Props) {
       const res = await syncExchangeCapitalRequest(exchangeId);
       const cap = res.data?.capital;
       Alert.alert(
-        "Capital synced",
-        `Exchange capital: ${formatMoney(cap?.totalDeposit ?? 0, { decimals: 2 })}\nT-VIP: ${cap?.tVipRank}\nC-VIP: ${cap?.cVipRank}`
+        "Trading stats synced",
+        `Exchange equity: ${formatMoney(cap?.exchangeCapital ?? 0, { decimals: 2 })} USDT`
       );
       await refreshUser().catch(() => undefined);
       await loadConnections();
@@ -265,9 +265,9 @@ export default function ExchangeConnectScreen({ navigation }: Props) {
           </View>
 
           <Text style={styles.sub}>
-            Paste your {selectedMeta.name} API key & secret. MirrorTrade never
-            withdraws — deposit & withdraw only on the exchange. VIP levels use
-            your exchange capital.
+            Paste your {selectedMeta.name} API key & secret. Used for trading
+            statistics (P/L). VIP levels are bought with USDT (BNB deposit) —
+            not exchange balance. Use a trade-only key (no withdrawals).
           </Text>
 
           <View style={styles.list}>
@@ -387,8 +387,8 @@ export default function ExchangeConnectScreen({ navigation }: Props) {
         <View style={styles.infoBanner}>
           <Ionicons name="information-circle" size={18} color="#2562FF" />
           <Text style={styles.infoBannerText}>
-            No payments inside MirrorTrade. Deposit / withdraw on your exchange.
-            Connect API key + secret — VIP levels update from exchange capital.
+            Connect trade-only API for complete trading statistics (P/L, equity).
+            VIP levels are bought with USDT after BNB deposit — not from exchange balance.
           </Text>
         </View>
 

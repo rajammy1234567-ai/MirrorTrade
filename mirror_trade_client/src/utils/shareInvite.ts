@@ -19,7 +19,7 @@ export function buildShareMessage(
   inviteLink: string,
   reward = 50
 ) {
-  return `Join me on MirrorTrade! 🚀\n\nUse my referral code: ${code}\nWe both get ₹${reward} after you verify.\n\nSign up: ${inviteLink}`;
+  return `Join me on MirrorTrade! 🚀\n\nUse my referral code: ${code}\nWe both get $${reward} USDT after you verify.\n\nSign up: ${inviteLink}`;
 }
 
 /**

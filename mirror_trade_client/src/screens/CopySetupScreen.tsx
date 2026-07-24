@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+﻿import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -97,7 +97,7 @@ export default function CopySetupScreen({ route, navigation }: Props) {
       const posCount = res.data?.positions?.length ?? 0;
       Alert.alert(
         "Copy started",
-        `You are now copying ${trader.name} with ₹${amount.toLocaleString("en-IN")}.\n\n${posCount} position(s) opened · live Binance marks.\n\n${res.data?.note || ""}`,
+        `You are now copying ${trader.name} with $${amount.toLocaleString("en-US")}.\n\n${posCount} position(s) opened · live Binance marks.\n\n${res.data?.note || ""}`,
         [
           {
             text: "View Portfolio",
@@ -137,7 +137,7 @@ export default function CopySetupScreen({ route, navigation }: Props) {
       footer={
         <GradientButton
           variant="green"
-          label={`Start Copying · ₹${amount.toLocaleString("en-IN")} INR`}
+          label={`Start Copying · $${amount.toLocaleString("en-US")} USD`}
           loading={loading}
           onPress={onStart}
         />
@@ -176,8 +176,8 @@ export default function CopySetupScreen({ route, navigation }: Props) {
       <View style={styles.card}>
         <Text style={styles.cardLabel}>INVESTMENT AMOUNT</Text>
         <View style={styles.amountRow}>
-          <Text style={styles.amount}>₹{amount.toLocaleString("en-IN")}</Text>
-          <Text style={styles.usdt}>INR</Text>
+          <Text style={styles.amount}>${amount.toLocaleString("en-US")}</Text>
+          <Text style={styles.usdt}>USD</Text>
         </View>
         <RangeSlider
           value={amount}
@@ -188,10 +188,10 @@ export default function CopySetupScreen({ route, navigation }: Props) {
           thumbColor={colors.primary}
         />
         <View style={styles.sliderLabels}>
-          <Text style={styles.sliderLabel}>₹100</Text>
-          <Text style={styles.sliderLabel}>₹1,000</Text>
-          <Text style={styles.sliderLabel}>₹2,500</Text>
-          <Text style={styles.sliderLabel}>₹5,000</Text>
+          <Text style={styles.sliderLabel}>$100</Text>
+          <Text style={styles.sliderLabel}>$1,000</Text>
+          <Text style={styles.sliderLabel}>$2,500</Text>
+          <Text style={styles.sliderLabel}>$5,000</Text>
         </View>
       </View>
 
@@ -244,9 +244,9 @@ export default function CopySetupScreen({ route, navigation }: Props) {
         <Text style={styles.cardLabel}>ORDER SUMMARY</Text>
         <Row
           label="Investment"
-          value={`₹${amount.toLocaleString("en-IN")} INR`}
+          value={`$${amount.toLocaleString("en-US")} USD`}
         />
-        <Row label="Effective size" value={`₹${(amount * multiplier).toLocaleString("en-IN")} (${multiplier}x)`} />
+        <Row label="Effective size" value={`$${(amount * multiplier).toLocaleString("en-US")} (${multiplier}x)`} />
         <Row label="Commission" value="10% of profit" />
         <Row label="Drawdown stop" value={`-${maxDd}%`} danger />
         <Row

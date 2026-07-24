@@ -17,11 +17,11 @@ import Screen from "../components/Screen";
 import GradientButton from "../components/GradientButton";
 import VipCharts from "../components/VipCharts";
 import {
-  API_URL,
   getApiErrorMessage,
   getMyPlanStatusRequest,
   getMyTransactionsRequest,
   listExchangesRequest,
+  purchaseLevelRequest,
   syncExchangeCapitalRequest,
   withTimeout,
   type CVipPlan,
@@ -40,36 +40,39 @@ type Props = NativeStackScreenProps<RootStackParamList, "TeamRank">;
 type FocusTab = "overview" | "T-VIP" | "C-VIP" | "capital";
 
 const TYPE_LABELS: Record<string, string> = {
-  DEPOSIT: "Capital update",
+  DEPOSIT: "Exchange stats update",
+  BNB_DEPOSIT: "BNB deposit (USDT)",
+  LEVEL_PURCHASE: "VIP level purchase",
   T_VIP_PROFIT_SHARE: "T-VIP Profit Share",
   SAME_LEVEL_BONUS: "Same Level Bonus",
   GLOBAL_DEV_BONUS: "Global Dev Bonus",
+  REFERRAL_REWARD: "Referral reward",
   WITHDRAWAL: "Withdrawal",
 };
 
 const T_VIP_STRATEGY = [
   {
     icon: "wallet-outline" as const,
-    title: "Exchange capital",
-    desc: "Keep your capital on the exchange (deposit and withdraw only there). The app uses that capital to set your VIP level.",
+    title: "Deposit BNB → USDT",
+    desc: "Deposit BNB via QR. Balance shows as USDT. Use it to buy VIP levels at the listed USD prices.",
   },
   {
     icon: "trending-up-outline" as const,
     title: "Profit share %",
-    desc: "You earn a share of the exchange trading profit pool based on your rank (20% → 65%).",
+    desc: "You earn a share of the profit pool based on your rank (20% → 65%). Earnings are withdrawable.",
   },
   {
     icon: "diamond-outline" as const,
-    title: "Auto upgrade",
-    desc: "After capital sync, higher T-VIP ranks unlock automatically — no in-app payment required.",
+    title: "Buy & upgrade",
+    desc: "Purchase the level price from your USDT balance — T-VIP updates on profile automatically.",
   },
 ];
 
 const C_VIP_STRATEGY = [
   {
     icon: "person-outline" as const,
-    title: "Own capital",
-    desc: "Your exchange capital must first meet the minimum required for that level.",
+    title: "Own level capital",
+    desc: "Your purchased VIP capital (USD) must meet the minimum for that C-VIP level.",
   },
   {
     icon: "people-outline" as const,
@@ -79,7 +82,7 @@ const C_VIP_STRATEGY = [
   {
     icon: "git-network-outline" as const,
     title: "Team business",
-    desc: "Total exchange capital across your full downline equals team business.",
+    desc: "Total purchased level capital across your full downline equals team business (USD).",
   },
 ];
 
@@ -173,8 +176,23 @@ function StrategyStep({
   );
 }
 
-function TVipPlanCard({ row, active }: { row: TVipPlan; active: boolean }) {
+function TVipPlanCard({
+  row,
+  active,
+  priceToReach,
+  usdtBalance,
+  buying,
+  onBuy,
+}: {
+  row: TVipPlan;
+  active: boolean;
+  priceToReach: number;
+  usdtBalance: number;
+  buying: boolean;
+  onBuy: () => void;
+}) {
   const share = row.profitSharePercent;
+  const unlocked = priceToReach <= 0;
   return (
     <View style={[styles.planCard, active && styles.planCardActiveT]}>
       {active ? (
@@ -186,7 +204,7 @@ function TVipPlanCard({ row, active }: { row: TVipPlan; active: boolean }) {
         <View>
           <Text style={[styles.planRank, active && { color: "#9BB0FF" }]}>{row.rank}</Text>
           <Text style={styles.planMin}>
-            Min capital {formatMoney(row.minDeposit, { decimals: 0 })}
+            Price {formatMoney(row.minDeposit, { decimals: 0 })} USD
           </Text>
         </View>
         <View style={styles.shareBubble}>
@@ -197,6 +215,24 @@ function TVipPlanCard({ row, active }: { row: TVipPlan; active: boolean }) {
       <View style={styles.shareBarBg}>
         <View style={[styles.shareBarFill, { width: `${Math.min(100, share)}%` }]} />
       </View>
+      {!unlocked ? (
+        <Pressable
+          style={[
+            styles.buyBtn,
+            (buying || usdtBalance < priceToReach) && { opacity: 0.5 },
+          ]}
+          disabled={buying || usdtBalance < priceToReach}
+          onPress={onBuy}
+        >
+          <Text style={styles.buyBtnText}>
+            {buying
+              ? "Buying…"
+              : `Buy · ${formatMoney(priceToReach, { decimals: 0 })} USDT`}
+          </Text>
+        </Pressable>
+      ) : (
+        <Text style={styles.unlockedText}>Unlocked</Text>
+      )}
     </View>
   );
 }
@@ -228,7 +264,7 @@ function CVipPlanCard({
       <Text style={[styles.planRank, active && { color: "#F7A600" }]}>{row.rank}</Text>
       <Text style={styles.planMin}>All 3 conditions required</Text>
       <View style={styles.condGrid}>
-        <CondBox ok={dOk} label="Capital" value={formatMoney(row.minDeposit, { decimals: 0 })} />
+        <CondBox ok={dOk} label="Level $" value={formatMoney(row.minDeposit, { decimals: 0 })} />
         <CondBox ok={dirOk} label="Directs" value={String(row.minDirects)} />
         <CondBox
           ok={tOk}
@@ -276,6 +312,7 @@ export default function TeamRankScreen({ navigation, route }: Props) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [buyingRank, setBuyingRank] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
@@ -334,10 +371,14 @@ export default function TeamRankScreen({ navigation, route }: Props) {
   const onSyncCapital = async () => {
     if (!exchanges.length) {
       Alert.alert(
-        "Connect exchange first",
-        "VIP levels use your exchange capital. Connect a trade-only API key first.",
+        "Connect exchange for stats",
+        "Exchange API is for trading P/L stats. VIP levels are purchased with USDT (BNB deposit).",
         [
           { text: "Cancel", style: "cancel" },
+          {
+            text: "Deposit USDT",
+            onPress: () => navigation.navigate("Deposit"),
+          },
           {
             text: "Connect API",
             onPress: () => navigation.navigate("ExchangeConnect"),
@@ -351,15 +392,43 @@ export default function TeamRankScreen({ navigation, route }: Props) {
       const res = await syncExchangeCapitalRequest();
       const cap = res.data.capital;
       Alert.alert(
-        "Capital synced",
-        `Exchange capital: ${formatMoney(cap.totalDeposit, { decimals: 2 })}\nT-VIP: ${cap.tVipRank}\nC-VIP: ${cap.cVipRank}`
+        "Trading stats synced",
+        `Exchange equity: ${formatMoney(cap.exchangeCapital ?? 0, { decimals: 2 })} USDT\nVIP ranks use purchased level capital.`
       );
       await load();
     } catch (err) {
-      Alert.alert("Sync failed", getApiErrorMessage(err, "Could not sync capital"));
+      Alert.alert("Sync failed", getApiErrorMessage(err, "Could not sync stats"));
     } finally {
       setSyncing(false);
     }
+  };
+
+  const onBuyLevel = (rank: string, price: number) => {
+    Alert.alert(
+      `Buy ${rank}`,
+      `Pay ${formatMoney(price, { decimals: 0 })} USDT from your deposit balance to unlock this level?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Buy",
+          onPress: async () => {
+            setBuyingRank(rank);
+            try {
+              const res = await purchaseLevelRequest({ rank });
+              Alert.alert(
+                "Level purchased",
+                `${res.message}\nT-VIP: ${res.data.tVip}\nC-VIP: ${res.data.cVip}`
+              );
+              await load();
+            } catch (err) {
+              Alert.alert("Purchase failed", getApiErrorMessage(err));
+            } finally {
+              setBuyingRank(null);
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (loading && !status) {
@@ -382,8 +451,10 @@ export default function TeamRankScreen({ navigation, route }: Props) {
   const cVipPlans = status?.plans?.cVip ?? [];
   const tProgress = status?.tVipProgress;
   const cProgress = status?.cVipProgress;
-  const capital = status?.exchangeCapital ?? status?.totalDeposit ?? 0;
+  const capital = status?.totalDeposit ?? 0;
+  const usdtBalance = status?.usdtBalance ?? status?.depositBalance ?? 0;
   const hasExchange = exchanges.length > 0;
+  const buyOptions = status?.tVipBuyOptions ?? [];
 
   return (
     <Screen edges={["top", "bottom", "left", "right"]} scroll={false} padded={false}>
@@ -439,7 +510,7 @@ export default function TeamRankScreen({ navigation, route }: Props) {
         {error ? (
           <View style={styles.errorBox}>
             <Text style={styles.errorText}>{error}</Text>
-            <Text style={styles.errorMeta}>API: {API_URL}</Text>
+
             <Pressable onPress={load}>
               <Text style={styles.retry}>Retry</Text>
             </Pressable>
@@ -452,8 +523,8 @@ export default function TeamRankScreen({ navigation, route }: Props) {
             <View style={styles.modelBanner}>
               <Ionicons name="shield-checkmark" size={18} color={colors.profit} />
               <Text style={styles.modelBannerText}>
-                No in-app payments. Deposit & withdraw only on your exchange. This app only
-                calculates VIP levels from exchange capital + team.
+                Deposit BNB via QR → USDT balance. Buy T-VIP / C-VIP levels with USDT.
+                Withdraw only app earnings. Exchange API = trading stats (USD).
               </Text>
             </View>
 
@@ -461,16 +532,13 @@ export default function TeamRankScreen({ navigation, route }: Props) {
               colors={["#1A2040", "#12161F"]}
               style={styles.hero}
             >
-              <Text style={styles.heroLabel}>Exchange capital (VIP base)</Text>
+              <Text style={styles.heroLabel}>Level capital (VIP base · USD)</Text>
               <Text style={styles.heroValue}>
                 {formatMoney(capital, { decimals: 2 })}
               </Text>
               <Text style={styles.heroMeta}>
-                Source: {status.capitalSource || "none"}
-                {status.primaryExchange ? ` · ${status.primaryExchange}` : ""}
-                {status.capitalSyncedAt
-                  ? ` · synced ${new Date(status.capitalSyncedAt).toLocaleString("en-IN")}`
-                  : ""}
+                USDT balance: {formatMoney(usdtBalance, { decimals: 2 })}
+                {status.capitalSource ? ` · ${status.capitalSource}` : ""}
               </Text>
               <View style={styles.heroStats}>
                 <View style={styles.heroStat}>
@@ -525,31 +593,30 @@ export default function TeamRankScreen({ navigation, route }: Props) {
               onOpenCVip={() => setTab("C-VIP")}
             />
 
-            {!hasExchange ? (
-              <Pressable onPress={() => navigation.navigate("ExchangeConnect")}>
-                <LinearGradient
-                  colors={["#4F6EF7", "#8B5CF6"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.depositCta}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.depositCtaTitle}>Connect exchange API</Text>
-                    <Text style={styles.depositCtaSub}>
-                      Levels unlock from exchange capital — no app payment
-                    </Text>
-                  </View>
-                  <Ionicons name="arrow-forward-circle" size={32} color="#fff" />
-                </LinearGradient>
-              </Pressable>
-            ) : (
+            <Pressable onPress={() => navigation.navigate("Deposit")}>
+              <LinearGradient
+                colors={["#4F6EF7", "#8B5CF6"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.depositCta}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.depositCtaTitle}>Deposit BNB → USDT</Text>
+                  <Text style={styles.depositCtaSub}>
+                    Scan QR, get USDT balance, buy VIP levels
+                  </Text>
+                </View>
+                <Ionicons name="arrow-forward-circle" size={32} color="#fff" />
+              </LinearGradient>
+            </Pressable>
+            {hasExchange ? (
               <GradientButton
-                label={syncing ? "Syncing capital…" : "Sync capital from exchange"}
+                label={syncing ? "Syncing stats…" : "Sync trading stats"}
                 onPress={onSyncCapital}
                 loading={syncing}
                 variant="green"
               />
-            )}
+            ) : null}
 
             {status.nextTVip && tProgress ? (
               <View style={styles.progressCard}>
@@ -568,7 +635,7 @@ export default function TeamRankScreen({ navigation, route }: Props) {
                   Next C-VIP → {status.nextCVip.rank}
                 </Text>
                 <RequirementRow
-                  label="Exchange capital"
+                  label="Level capital (USD)"
                   metric={cProgress.deposit}
                   format="money"
                   color="#F7A600"
@@ -618,14 +685,15 @@ export default function TeamRankScreen({ navigation, route }: Props) {
               <MaterialCommunityIcons name="diamond-stone" size={36} color="#9BB0FF" />
               <Text style={styles.planHeroTitle}>T-VIP Strategy</Text>
               <Text style={styles.planHeroSub}>
-                Income VIP — based on your personal exchange capital only. Higher capital →
-                higher % of exchange profit pool. No app deposit required.
+                Income VIP — buy level capital with USDT (from BNB deposit). Higher capital →
+                higher profit share. Earnings are withdrawable.
               </Text>
               {status ? (
                 <Text style={styles.currentMeta}>
                   {status.tVipRank || "NONE"} · capital{" "}
-                  {formatMoney(capital, { decimals: 0 })} · {status.tVipProfitSharePercent}%
-                  share
+                  {formatMoney(capital, { decimals: 0 })} · USDT{" "}
+                  {formatMoney(usdtBalance, { decimals: 0 })} ·{" "}
+                  {status.tVipProfitSharePercent}% share
                 </Text>
               ) : null}
             </LinearGradient>
@@ -640,14 +708,24 @@ export default function TeamRankScreen({ navigation, route }: Props) {
                 accent="#5B8CFF"
               />
             ))}
-            <Text style={styles.sectionTitle}>T-VIP levels</Text>
-            {tVipPlans.map((row) => (
-              <TVipPlanCard
-                key={row.rank}
-                row={row}
-                active={status?.tVipRank === row.rank}
-              />
-            ))}
+            <Text style={styles.sectionTitle}>T-VIP levels (USD)</Text>
+            {tVipPlans.map((row) => {
+              const opt = buyOptions.find((b) => b.rank === row.rank);
+              const priceToReach =
+                opt?.priceToReach ??
+                Math.max(0, row.minDeposit - capital);
+              return (
+                <TVipPlanCard
+                  key={row.rank}
+                  row={row}
+                  active={status?.tVipRank === row.rank}
+                  priceToReach={priceToReach}
+                  usdtBalance={usdtBalance}
+                  buying={buyingRank === row.rank}
+                  onBuy={() => onBuyLevel(row.rank, priceToReach)}
+                />
+              );
+            })}
           </>
         ) : null}
 
@@ -658,8 +736,8 @@ export default function TeamRankScreen({ navigation, route }: Props) {
               <MaterialCommunityIcons name="crown" size={36} color="#F7A600" />
               <Text style={styles.planHeroTitle}>C-VIP Strategy</Text>
               <Text style={styles.planHeroSub}>
-                Community VIP — exchange capital + directs + team business. Weakest condition
-                caps your rank. Bonuses from C-VIP-5+.
+                Community VIP — purchased level capital + directs + team business (USD).
+                Weakest condition caps your rank. Bonuses from C-VIP-5+.
               </Text>
             </LinearGradient>
             <Text style={styles.sectionTitle}>How it works</Text>
@@ -679,7 +757,7 @@ export default function TeamRankScreen({ navigation, route }: Props) {
                   Requirements → {status.nextCVip.rank}
                 </Text>
                 <RequirementRow
-                  label="Exchange capital"
+                  label="Level capital (USD)"
                   metric={cProgress.deposit}
                   format="money"
                   color="#F7A600"
@@ -725,11 +803,10 @@ export default function TeamRankScreen({ navigation, route }: Props) {
           <>
             <LinearGradient colors={["#0F2A4A", "#12161F"]} style={styles.planHero}>
               <Ionicons name="link" size={36} color={colors.profit} />
-              <Text style={styles.planHeroTitle}>Exchange capital</Text>
+              <Text style={styles.planHeroTitle}>Wallet & levels (USD)</Text>
               <Text style={styles.planHeroSub}>
-                MirrorTrade does not collect deposits or process withdrawals. You fund and
-                withdraw on Binance / Bybit / OKX. We only read trade-only API balances to set
-                VIP levels.
+                Deposit BNB via QR → credited as USDT. Buy VIP levels with USDT. Withdraw only
+                earnings. Connect exchange API for complete trading P/L statistics.
               </Text>
             </LinearGradient>
 
@@ -737,18 +814,23 @@ export default function TeamRankScreen({ navigation, route }: Props) {
             {[
               {
                 n: "1",
-                t: "Deposit on exchange",
-                d: "Add funds to your exchange account (their app/website).",
+                t: "Deposit BNB",
+                d: "Scan QR on Deposit screen, send BNB, submit amount/TxHash → USDT balance.",
               },
               {
                 n: "2",
-                t: "Connect trade-only API",
-                d: "Key with trading + read balance. Withdrawals must be OFF.",
+                t: "Buy VIP level",
+                d: "Spend USDT to purchase T-VIP / C-VIP capital. Profile shows your ranks.",
               },
               {
                 n: "3",
-                t: "Levels update",
-                d: "We sync USDT capital → T-VIP / C-VIP ranks recalculate.",
+                t: "Earn & withdraw",
+                d: "Referral/bonuses go to earnings. Withdraw earnings only (not deposit).",
+              },
+              {
+                n: "4",
+                t: "Trading stats",
+                d: "Connect trade-only API → full P/L and portfolio stats on the app.",
               },
             ].map((s) => (
               <View key={s.n} style={styles.depositStep}>
@@ -1030,6 +1112,21 @@ const styles = StyleSheet.create({
   },
   strategyTitle: { color: colors.text, fontWeight: "700", fontSize: 14 },
   strategyDesc: { color: colors.muted, fontSize: 12, lineHeight: 17, marginTop: 2 },
+  buyBtn: {
+    marginTop: 12,
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  buyBtnText: { color: "#0B0E14", fontWeight: "800", fontSize: 13 },
+  unlockedText: {
+    marginTop: 10,
+    color: colors.profit,
+    fontWeight: "700",
+    fontSize: 12,
+    textAlign: "center",
+  },
   planCard: {
     backgroundColor: colors.card,
     borderRadius: 16,

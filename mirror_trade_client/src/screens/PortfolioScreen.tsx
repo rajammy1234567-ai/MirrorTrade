@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+﻿import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -18,11 +18,14 @@ import GradientButton from "../components/GradientButton";
 import {
   closePositionRequest,
   getApiErrorMessage,
+  getMyPlanStatusRequest,
   getMyPositionsRequest,
   getPortfolioSummaryRequest,
+  listExchangesRequest,
   type ApiCopyPosition,
   type PortfolioSummary,
 } from "../config/api";
+import { formatMoney } from "../config/currency";
 import { useAuth } from "../context/AuthContext";
 import { useAppData } from "../context/AppDataContext";
 import { RootStackParamList } from "../navigation/types";
@@ -37,6 +40,8 @@ export default function PortfolioScreen() {
   const [active, setActive] = useState<ApiCopyPosition[]>([]);
   const [history, setHistory] = useState<ApiCopyPosition[]>([]);
   const [summary, setSummary] = useState<PortfolioSummary | null>(null);
+  const [exchangeEquity, setExchangeEquity] = useState(0);
+  const [exchangeName, setExchangeName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -48,6 +53,7 @@ export default function PortfolioScreen() {
         setActive([]);
         setHistory([]);
         setSummary(null);
+        setExchangeEquity(0);
         setLoading(false);
         return;
       }
@@ -55,14 +61,24 @@ export default function PortfolioScreen() {
       else setLoading(true);
       setError("");
       try {
-        const [sumRes, actRes, histRes] = await Promise.all([
+        const [sumRes, actRes, histRes, planRes, exRes] = await Promise.all([
           getPortfolioSummaryRequest(),
           getMyPositionsRequest("active"),
           getMyPositionsRequest("closed"),
+          getMyPlanStatusRequest().catch(() => null),
+          listExchangesRequest().catch(() => null),
         ]);
         if (sumRes.success) setSummary(sumRes.data);
         if (actRes.success) setActive(actRes.data || []);
         if (histRes.success) setHistory(histRes.data || []);
+        if (planRes?.success) {
+          setExchangeEquity(planRes.data.exchangeCapital || 0);
+          setExchangeName(planRes.data.primaryExchange || null);
+        }
+        if (exRes?.success && exRes.data?.[0]) {
+          setExchangeEquity((v) => exRes.data[0].lastCapital ?? v);
+          setExchangeName((n) => exRes.data[0].exchange || n);
+        }
       } catch (err) {
         setError(getApiErrorMessage(err, "Failed to load portfolio"));
       } finally {
@@ -111,7 +127,7 @@ export default function PortfolioScreen() {
   if (!user) {
     return (
       <Screen tabScreen>
-        <Text style={styles.title}>Portfolio</Text>
+        <Text style={styles.title}>Portfolio · USD</Text>
         <EmptyState
           icon="lock-closed-outline"
           title="Login required"
@@ -127,7 +143,7 @@ export default function PortfolioScreen() {
 
   return (
     <Screen tabScreen>
-      <Text style={styles.title}>Portfolio</Text>
+      <Text style={styles.title}>Portfolio · USD</Text>
 
       {loading && !summary ? (
         <ActivityIndicator color={colors.primary} style={{ marginTop: 24 }} />
@@ -154,10 +170,10 @@ export default function PortfolioScreen() {
           <View style={styles.summary}>
             <View style={styles.summaryTop}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.sumLabel}>ALL-TIME PnL</Text>
+                <Text style={styles.sumLabel}>ALL-TIME PnL (USD)</Text>
                 <PnlText
                   value={summary?.allTimePnl ?? 0}
-                  prefix="₹"
+                  prefix="$"
                   size="xl"
                 />
               </View>
@@ -188,17 +204,41 @@ export default function PortfolioScreen() {
             </View>
             {summary ? (
               <Text style={styles.alloc}>
-                Allocated ₹{summary.allocated.toLocaleString("en-IN")} ·{" "}
-                {summary.activeCopies} active copies · Unrealized{" "}
+                Allocated {formatMoney(summary.allocated, { decimals: 0 })} ·{" "}
+                {summary.activeCopies} active copies · Realized{" "}
+                <Text
+                  style={{
+                    color:
+                      summary.realizedPnl >= 0 ? colors.profit : colors.loss,
+                  }}
+                >
+                  {formatMoney(summary.realizedPnl, { decimals: 2 })}
+                </Text>
+                {" · Unrealized "}
                 <Text
                   style={{
                     color:
                       summary.unrealizedPnl >= 0 ? colors.profit : colors.loss,
                   }}
                 >
-                  ₹{summary.unrealizedPnl.toFixed(2)}
+                  {formatMoney(summary.unrealizedPnl, { decimals: 2 })}
                 </Text>
               </Text>
+            ) : null}
+            <View style={styles.exRow}>
+              <Text style={styles.exLabel}>
+                Exchange equity{exchangeName ? ` · ${exchangeName}` : ""}
+              </Text>
+              <Text style={styles.exVal}>
+                {formatMoney(exchangeEquity, { decimals: 2 })} USDT
+              </Text>
+            </View>
+            {!exchangeName ? (
+              <Pressable onPress={() => navigation.navigate("ExchangeConnect")}>
+                <Text style={styles.exLink}>
+                  Connect exchange API for live trading stats →
+                </Text>
+              </Pressable>
             ) : null}
           </View>
 
@@ -252,7 +292,7 @@ export default function PortfolioScreen() {
                         {p.source} · {p.side.toUpperCase()}
                       </Text>
                     </View>
-                    <PnlText value={p.pnl} prefix="₹" size="md" />
+                    <PnlText value={p.pnl} prefix="$" size="md" />
                   </View>
                   <View style={styles.metaRow}>
                     <Text style={styles.meta}>
@@ -314,6 +354,23 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: colors.text,
     marginBottom: 14,
+  },
+  exRow: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  exLabel: { color: colors.muted, fontSize: 12 },
+  exVal: { color: colors.text, fontWeight: "700", fontSize: 14 },
+  exLink: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 8,
   },
   summary: {
     borderRadius: 16,

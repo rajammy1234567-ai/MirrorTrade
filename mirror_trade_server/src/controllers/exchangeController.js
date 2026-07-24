@@ -168,7 +168,7 @@ const connectExchange = async (req, res) => {
         amount: capital,
         source: "exchange",
         exchange,
-        note: `${exchange} capital sync on connect · ${capital} USDT`,
+        note: `${exchange} equity snapshot · ${capital} USDT (trading stats only)`,
       });
       doc.lastCapital = capital;
       doc.capitalSyncedAt = new Date();
@@ -182,7 +182,7 @@ const connectExchange = async (req, res) => {
     return res.status(200).json({
       success: true,
       message:
-        "Exchange connected. Funds stay on your exchange. VIP levels use your exchange capital.",
+        "Exchange connected. Trading stats use this API. VIP levels are bought with USDT deposits (BNB QR).",
       data: {
         connection: formatConnection(doc),
         capital: capitalResult,
@@ -269,12 +269,12 @@ const syncCapital = async (req, res) => {
       amount,
       source: "exchange",
       exchange: primary?.exchange || null,
-      note: `Exchange capital sync · ${amount} USDT`,
+      note: `Exchange equity sync · ${amount} USDT (stats only)`,
     });
 
     return res.json({
       success: true,
-      message: "Exchange capital synced. VIP levels updated.",
+      message: "Exchange equity synced for trading statistics.",
       data: {
         exchanges: perExchange,
         capital: capitalResult,

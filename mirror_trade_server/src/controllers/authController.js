@@ -22,6 +22,8 @@ const formatUser = (user) => ({
   referredBy: user.referredBy || null,
   referralRewardsEarned: user.referralRewardsEarned || 0,
   totalDeposit: user.totalDeposit || 0,
+  usdtBalance: user.usdtBalance || 0,
+  exchangeCapital: user.exchangeCapital || 0,
   capitalSource: user.capitalSource || "none",
   capitalSyncedAt: user.capitalSyncedAt || null,
   primaryExchange: user.primaryExchange || null,

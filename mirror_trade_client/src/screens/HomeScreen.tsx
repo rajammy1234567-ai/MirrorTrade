@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+﻿import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -232,7 +232,7 @@ export default function HomeScreen() {
             <View style={styles.inviteHeadText}>
               <Text style={styles.inviteTitle}>Invite & Earn</Text>
               <Text style={styles.inviteSub}>
-                Get ₹{reward} for every friend who joins & verifies
+                Get ${reward} for every friend who joins & verifies
               </Text>
             </View>
           </View>
@@ -243,7 +243,7 @@ export default function HomeScreen() {
                 Direct invites {progressCount}/{DIRECT_TARGET}
               </Text>
               <Text style={styles.progressEarned}>
-                Earned ₹{Number(rewardsEarned).toLocaleString("en-IN")}
+                Earned ${Number(rewardsEarned).toLocaleString("en-US")}
               </Text>
             </View>
             <View style={styles.progressTrack}>

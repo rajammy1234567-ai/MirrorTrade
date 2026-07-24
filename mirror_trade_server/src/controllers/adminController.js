@@ -1,8 +1,11 @@
 const User = require("../models/User");
+const DepositRequest = require("../models/DepositRequest");
+const WithdrawRequest = require("../models/WithdrawRequest");
 const {
   creditDeposit,
-  setExchangeCapital,
+  setVipCapital,
 } = require("../services/capitalService");
+const walletService = require("../services/walletService");
 const { createUniqueReferralCode } = require("../services/referralService");
 
 const formatUser = (user) => ({
@@ -15,6 +18,8 @@ const formatUser = (user) => ({
   isEmailVerified: Boolean(user.isEmailVerified),
   referralCode: user.referralCode || null,
   totalDeposit: user.totalDeposit || 0,
+  usdtBalance: user.usdtBalance || 0,
+  exchangeCapital: user.exchangeCapital || 0,
   capitalSource: user.capitalSource || "none",
   capitalSyncedAt: user.capitalSyncedAt || null,
   primaryExchange: user.primaryExchange || null,
@@ -90,18 +95,19 @@ const updateUserStatus = async (req, res) => {
   });
 };
 
-// @desc    Admin sets / adjusts exchange capital used for VIP levels (support only)
+// @desc    Admin sets / adjusts VIP level capital (support only)
 // @route   POST /api/admin/users/:id/deposit
-// body: { amount, mode?: "set" | "add" }  default "set"
+// body: { amount, mode?: "set" | "add", kind?: "vip" | "usdt" }
 // @access  Private/Admin
 const adminDeposit = async (req, res) => {
   const amount = Number(req.body.amount);
   const mode = req.body.mode === "add" ? "add" : "set";
+  const kind = req.body.kind === "usdt" ? "usdt" : "vip";
 
   if (amount < 0 || Number.isNaN(amount)) {
     return res
       .status(400)
-      .json({ success: false, message: "Valid capital amount is required" });
+      .json({ success: false, message: "Valid amount is required" });
   }
 
   const user = await User.findById(req.params.id);
@@ -115,25 +121,45 @@ const adminDeposit = async (req, res) => {
   }
 
   try {
+    // Credit spendable USDT deposit balance
+    if (kind === "usdt") {
+      if (mode === "add") {
+        await walletService.creditUsdtDeposit({
+          userId: user._id,
+          amountUsdt: amount,
+          note: `Admin USDT credit +${amount}`,
+        });
+      } else {
+        user.usdtBalance = amount;
+        await user.save();
+      }
+      const fresh = await User.findById(user._id);
+      return res.status(201).json({
+        success: true,
+        message: "USDT balance updated",
+        data: formatUser(fresh),
+      });
+    }
+
     const result =
       mode === "add"
         ? await creditDeposit({
             userId: user._id,
             amount,
-            note: `Admin capital credit +${amount}`,
+            note: `Admin VIP capital credit +${amount}`,
           })
-        : await setExchangeCapital({
+        : await setVipCapital({
             userId: user._id,
             amount,
             source: "admin",
-            note: `Admin set capital to ${amount}`,
+            note: `Admin set VIP capital to ${amount}`,
           });
 
     const fresh = await User.findById(user._id);
 
     res.status(201).json({
       success: true,
-      message: "Capital updated and VIP ranks recalculated",
+      message: "VIP capital updated and ranks recalculated",
       data: formatUser(fresh),
       ranks: { tVip: result.tVip, cVip: result.cVip },
     });
@@ -142,4 +168,131 @@ const adminDeposit = async (req, res) => {
   }
 };
 
-module.exports = { getStats, getUsers, updateUserStatus, adminDeposit };
+// GET /api/admin/deposits?status=pending
+const listDeposits = async (req, res) => {
+  const filter = {};
+  if (req.query.status) filter.status = req.query.status;
+  const rows = await DepositRequest.find(filter)
+    .sort({ createdAt: -1 })
+    .limit(100)
+    .populate("user", "name email");
+  res.json({
+    success: true,
+    count: rows.length,
+    data: rows.map((d) => ({
+      ...walletService.formatDeposit(d),
+      user: d.user
+        ? { id: d.user._id, name: d.user.name, email: d.user.email }
+        : null,
+    })),
+  });
+};
+
+// POST /api/admin/deposits/:id/approve
+const approveDeposit = async (req, res) => {
+  try {
+    const result = await walletService.approveDepositRequest({
+      depositId: req.params.id,
+      adminId: req.user._id,
+      note: req.body.note || "",
+    });
+    res.json({
+      success: true,
+      message: "Deposit credited as USDT",
+      data: result,
+    });
+  } catch (err) {
+    res.status(err.statusCode || 400).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+// POST /api/admin/deposits/:id/reject
+const rejectDeposit = async (req, res) => {
+  try {
+    const data = await walletService.rejectDepositRequest({
+      depositId: req.params.id,
+      adminId: req.user._id,
+      note: req.body.note || "",
+    });
+    res.json({ success: true, message: "Deposit rejected", data });
+  } catch (err) {
+    res.status(err.statusCode || 400).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+// GET /api/admin/withdrawals
+const listWithdrawals = async (req, res) => {
+  const filter = {};
+  if (req.query.status) filter.status = req.query.status;
+  const rows = await WithdrawRequest.find(filter)
+    .sort({ createdAt: -1 })
+    .limit(100)
+    .populate("user", "name email");
+  res.json({
+    success: true,
+    count: rows.length,
+    data: rows.map((w) => ({
+      ...walletService.formatWithdraw(w),
+      user: w.user
+        ? { id: w.user._id, name: w.user.name, email: w.user.email }
+        : null,
+    })),
+  });
+};
+
+// POST /api/admin/withdrawals/:id/pay
+const payWithdrawal = async (req, res) => {
+  try {
+    const data = await walletService.markWithdrawPaid({
+      withdrawId: req.params.id,
+      adminId: req.user._id,
+      note: req.body.note || "",
+    });
+    res.json({ success: true, message: "Withdrawal marked paid", data });
+  } catch (err) {
+    res.status(err.statusCode || 400).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+// POST /api/admin/withdrawals/:id/reject
+const rejectWithdrawal = async (req, res) => {
+  try {
+    const data = await walletService.rejectWithdraw({
+      withdrawId: req.params.id,
+      adminId: req.user._id,
+      note: req.body.note || "",
+    });
+    res.json({
+      success: true,
+      message: "Withdrawal rejected — earnings refunded",
+      data,
+    });
+  } catch (err) {
+    res.status(err.statusCode || 400).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+module.exports = {
+  getStats,
+  getUsers,
+  updateUserStatus,
+  adminDeposit,
+  listDeposits,
+  approveDeposit,
+  rejectDeposit,
+  listWithdrawals,
+  payWithdrawal,
+  rejectWithdrawal,
+};

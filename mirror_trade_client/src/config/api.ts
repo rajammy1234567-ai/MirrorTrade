@@ -69,7 +69,9 @@ export type AuthUser = {
   referredBy?: string | null;
   referralRewardsEarned?: number;
   totalDeposit?: number;
-  capitalSource?: "none" | "exchange" | "admin";
+  usdtBalance?: number;
+  exchangeCapital?: number;
+  capitalSource?: "none" | "exchange" | "admin" | "purchase" | "bnb";
   capitalSyncedAt?: string | null;
   primaryExchange?: string | null;
   tVipRank?: string;
@@ -140,11 +142,16 @@ export type ProgressMetric = {
 
 export type PlanStatus = {
   totalDeposit: number;
+  levelCapital?: number;
   exchangeCapital?: number;
+  usdtBalance?: number;
+  depositBalance?: number;
   capitalSource?: string;
   capitalSyncedAt?: string | null;
   primaryExchange?: string | null;
   walletBalance: number;
+  earningsBalance?: number;
+  withdrawable?: number;
   tVipRank: string;
   cVipRank: string;
   tVipProfitSharePercent: number;
@@ -159,8 +166,15 @@ export type PlanStatus = {
     directs: ProgressMetric;
     teamBusiness: ProgressMetric;
   } | null;
+  tVipBuyOptions?: Array<
+    TVipPlan & { priceToReach: number; unlocked: boolean }
+  >;
+  currency?: string;
+  unit?: string;
   model?: {
     inAppPayments: boolean;
+    depositCoin?: string;
+    creditCurrency?: string;
     capitalFromExchange: boolean;
     note: string;
   };
@@ -172,6 +186,63 @@ export type PlanStatus = {
     tVip: TVipPlan[];
     cVip: CVipPlan[];
   };
+};
+
+export type WalletSnapshot = {
+  usdtBalance: number;
+  depositBalance: number;
+  walletBalance: number;
+  earningsBalance: number;
+  withdrawable: number;
+  totalDeposit: number;
+  levelCapital: number;
+  exchangeCapital: number;
+  tVipRank: string;
+  cVipRank: string;
+  referralRewardsEarned: number;
+  directs: number;
+  teamBusiness: number;
+  currency: string;
+  unit: string;
+};
+
+export type DepositInfo = {
+  coin: string;
+  network: string;
+  address: string;
+  creditCurrency: string;
+  displayCurrency: string;
+  bnbToUsdtRate: number;
+  minDepositUsdt: number;
+  maxDepositUsdt: number;
+  qrPayload: string;
+  note: string;
+};
+
+export type DepositRequestRow = {
+  id: string;
+  amountUsdt: number;
+  amountBnb?: number | null;
+  coin: string;
+  network: string;
+  depositAddress: string;
+  txHash?: string | null;
+  status: "pending" | "credited" | "rejected";
+  note?: string;
+  creditedAt?: string | null;
+  createdAt: string;
+};
+
+export type WithdrawRequestRow = {
+  id: string;
+  amount: number;
+  currency: string;
+  payoutAddress: string;
+  network: string;
+  status: "pending" | "paid" | "rejected";
+  note?: string;
+  processedAt?: string | null;
+  createdAt: string;
 };
 
 export type PlanTransaction = {
@@ -203,10 +274,12 @@ export type ExchangeConnection = {
 export type CapitalSnapshot = {
   totalDeposit: number;
   exchangeCapital?: number;
+  usdtBalance?: number;
+  walletBalance?: number;
   tVipRank: string;
   cVipRank: string;
-  directs: number;
-  teamBusiness: number;
+  directs?: number;
+  teamBusiness?: number;
   capitalSource?: string;
   capitalSyncedAt?: string | null;
   primaryExchange?: string | null;
@@ -607,5 +680,122 @@ export async function getPortfolioSummaryRequest() {
     success: boolean;
     data: PortfolioSummary;
   }>("/trade/portfolio");
+  return data;
+}
+
+// ─── Wallet (BNB deposit → USDT, level buy, earnings withdraw) ───
+
+export async function getWalletRequest() {
+  const { data } = await api.get<{ success: boolean; data: WalletSnapshot }>(
+    "/wallet"
+  );
+  return data;
+}
+
+export async function getDepositInfoRequest() {
+  const { data } = await api.get<{ success: boolean; data: DepositInfo }>(
+    "/wallet/deposit-info"
+  );
+  return data;
+}
+
+export async function createDepositRequestApi(payload: {
+  amountUsdt: number;
+  amountBnb?: number;
+  txHash?: string;
+}) {
+  const { data } = await api.post<{
+    success: boolean;
+    message: string;
+    data: {
+      deposit: DepositRequestRow;
+      autoCredited: boolean;
+      wallet: WalletSnapshot;
+    };
+  }>("/wallet/deposit", payload);
+  return data;
+}
+
+export async function listMyDepositsRequest(limit = 20) {
+  const { data } = await api.get<{
+    success: boolean;
+    count: number;
+    data: DepositRequestRow[];
+  }>("/wallet/deposits", { params: { limit } });
+  return data;
+}
+
+export async function purchaseLevelRequest(payload: {
+  rank?: string;
+  amount?: number;
+}) {
+  const { data } = await api.post<{
+    success: boolean;
+    message: string;
+    data: WalletSnapshot & {
+      purchased: number;
+      targetRank: string | null;
+      tVip: string;
+      cVip: string;
+    };
+  }>("/wallet/purchase-level", payload);
+  return data;
+}
+
+export async function purchasePlanRequest(payload: {
+  rank?: string;
+  amount?: number;
+}) {
+  const { data } = await api.post<{
+    success: boolean;
+    message: string;
+    data: WalletSnapshot & {
+      purchased: number;
+      targetRank: string | null;
+      tVip: string;
+      cVip: string;
+    };
+  }>("/plans/purchase", payload);
+  return data;
+}
+
+export async function getWithdrawableRequest() {
+  const { data } = await api.get<{
+    success: boolean;
+    data: {
+      withdrawable: number;
+      earningsBalance: number;
+      walletBalance: number;
+      usdtBalance: number;
+      note: string;
+      currency: string;
+      unit: string;
+    };
+  }>("/wallet/withdrawable");
+  return data;
+}
+
+export async function createWithdrawRequestApi(payload: {
+  amount: number;
+  payoutAddress: string;
+  network?: string;
+}) {
+  const { data } = await api.post<{
+    success: boolean;
+    message: string;
+    data: {
+      withdraw: WithdrawRequestRow;
+      wallet: WalletSnapshot;
+    };
+  }>("/wallet/withdraw", payload);
+  return data;
+}
+
+export async function listMyWithdrawalsRequest(limit = 20) {
+  const { data } = await api.get<{
+    success: boolean;
+    count: number;
+    data: WithdrawRequestRow[];
+  }>("/wallet/withdrawals", { params: { limit } });
   return data;
 }
