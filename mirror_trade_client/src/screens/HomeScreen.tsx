@@ -32,7 +32,6 @@ const CARD_BORDER = colors.border;
 const YELLOW = colors.primary;
 const MUTED = colors.muted;
 const TEXT = colors.text;
-const DIRECT_TARGET = 3;
 
 const MODE_TABS = ["Automated", "Signal", "Manual"] as const;
 const PERIODS = ["90 Days", "30 Days", "15 Days", "1 Day"] as const;
@@ -143,12 +142,6 @@ export default function HomeScreen() {
   };
 
   const reward = invite?.rewardPerUser ?? 50;
-  const completed = invite?.stats?.completed ?? 0;
-  const totalInvites = invite?.stats?.totalInvites ?? 0;
-  const progressCount = Math.min(DIRECT_TARGET, completed || totalInvites);
-  const progressPct = Math.min(100, (progressCount / DIRECT_TARGET) * 100);
-  const codeLabel = invite?.referralCode || user?.referralCode || "—";
-  const rewardsEarned = invite?.stats?.rewardsEarned ?? 0;
 
   /** Ranked list for current mode + period */
   const rankedTraders = useMemo(() => {
@@ -227,7 +220,7 @@ export default function HomeScreen() {
 
           <View style={styles.inviteTop}>
             <View style={styles.inviteIconWrap}>
-              <Ionicons name="gift" size={22} color={YELLOW} />
+              <Ionicons name="gift" size={16} color={YELLOW} />
             </View>
             <View style={styles.inviteHeadText}>
               <Text style={styles.inviteTitle}>Invite & Earn</Text>
@@ -235,38 +228,6 @@ export default function HomeScreen() {
                 Get ${reward} for every friend who joins & verifies
               </Text>
             </View>
-          </View>
-
-          <View style={styles.progressBlock}>
-            <View style={styles.progressLabels}>
-              <Text style={styles.progressLabel}>
-                Direct invites {progressCount}/{DIRECT_TARGET}
-              </Text>
-              <Text style={styles.progressEarned}>
-                Earned ${Number(rewardsEarned).toLocaleString("en-US")}
-              </Text>
-            </View>
-            <View style={styles.progressTrack}>
-              <View
-                style={[styles.progressFill, { width: `${progressPct}%` }]}
-              />
-            </View>
-          </View>
-
-          <View style={styles.codeRow}>
-            <View style={styles.codeChip}>
-              <Text style={styles.codeHint}>Your code</Text>
-              <Text style={styles.codeValue} numberOfLines={1}>
-                {codeLabel}
-              </Text>
-            </View>
-            <Pressable
-              style={styles.codeAction}
-              onPress={openInviteScreen}
-              hitSlop={6}
-            >
-              <Ionicons name="open-outline" size={16} color={YELLOW} />
-            </Pressable>
           </View>
 
           <View style={styles.inviteActions}>
@@ -535,14 +496,14 @@ const styles = StyleSheet.create({
     padding: 2,
   },
 
-  /* Invite */
+  /* Invite — compact */
   inviteCard: {
     marginHorizontal: 16,
-    borderRadius: 18,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: "rgba(255,209,67,0.22)",
     backgroundColor: CARD_BG,
-    padding: 16,
+    padding: 10,
     overflow: "hidden",
   },
   inviteTop: {
@@ -550,9 +511,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   inviteIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 10,
     backgroundColor: "rgba(255,209,67,0.12)",
     borderWidth: 1,
     borderColor: "rgba(255,209,67,0.25)",
@@ -561,111 +522,43 @@ const styles = StyleSheet.create({
   },
   inviteHeadText: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: 10,
   },
   inviteTitle: {
     color: TEXT,
-    fontSize: 17,
+    fontSize: 14,
     fontWeight: "800",
   },
   inviteSub: {
-    marginTop: 3,
+    marginTop: 1,
     color: MUTED,
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  progressBlock: {
-    marginTop: 16,
-  },
-  progressLabels: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 8,
-  },
-  progressLabel: {
-    color: MUTED,
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  progressEarned: {
-    color: YELLOW,
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  progressTrack: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "rgba(255,255,255,0.06)",
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    borderRadius: 3,
-    backgroundColor: YELLOW,
-  },
-  codeRow: {
-    marginTop: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  codeChip: {
-    flex: 1,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: CARD_BORDER,
-    backgroundColor: "rgba(0,0,0,0.22)",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  codeHint: {
-    color: MUTED,
-    fontSize: 10,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-  },
-  codeValue: {
-    marginTop: 3,
-    color: TEXT,
-    fontSize: 16,
-    fontWeight: "800",
-    letterSpacing: 1.2,
-  },
-  codeAction: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: CARD_BORDER,
-    backgroundColor: "rgba(255,209,67,0.08)",
-    alignItems: "center",
-    justifyContent: "center",
+    fontSize: 11,
+    lineHeight: 14,
   },
   inviteActions: {
-    marginTop: 14,
+    marginTop: 8,
     flexDirection: "row",
-    gap: 10,
+    gap: 8,
   },
   shareBtn: {
     flex: 1,
-    height: 44,
-    borderRadius: 12,
+    height: 34,
+    borderRadius: 10,
     backgroundColor: YELLOW,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: 6,
   },
   shareBtnText: {
     color: "#111",
     fontWeight: "800",
-    fontSize: 14,
+    fontSize: 12,
   },
   detailsBtn: {
-    height: 44,
-    paddingHorizontal: 18,
-    borderRadius: 12,
+    height: 34,
+    paddingHorizontal: 14,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: CARD_BORDER,
     backgroundColor: "rgba(255,255,255,0.03)",
@@ -675,7 +568,7 @@ const styles = StyleSheet.create({
   detailsBtnText: {
     color: TEXT,
     fontWeight: "700",
-    fontSize: 13,
+    fontSize: 12,
   },
 
   /* VIP */

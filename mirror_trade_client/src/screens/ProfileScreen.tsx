@@ -459,24 +459,26 @@ export default function ProfileScreen() {
           <View style={styles.exStats}>
             <View style={styles.exStat}>
               <Text style={styles.exStatLabel}>Est. Total Value</Text>
-              <Text style={styles.exStatVal}>{mask(capital, 0)}</Text>
+              <Text style={styles.exStatVal}>
+                {mask(exchangeCap + usdtBal + earnings, 0)}
+              </Text>
             </View>
             <View style={styles.exStat}>
-              <Text style={styles.exStatLabel}>Available</Text>
+              <Text style={styles.exStatLabel}>Available USDT</Text>
               <Text style={styles.exStatVal}>{mask(available, 0)}</Text>
             </View>
             <View style={[styles.exStat, styles.exStatBorder]}>
-              <Text style={styles.exStatLabel}>Bot Capital</Text>
+              <Text style={styles.exStatLabel}>Level capital</Text>
               <Text style={[styles.exStatVal, { color: YELLOW }]}>
-                {mask(0, 0)}
+                {mask(levelCapital, 0)}
               </Text>
             </View>
           </View>
 
           <Text style={styles.exHint}>
             {primaryEx || exchanges.length
-              ? "Funds stay on your exchange. Sync capital to refresh VIP levels."
-              : "Connect exchange API (trade-only). Deposit/withdraw only on the exchange."}
+              ? "Exchange API drives trading stats only. VIP levels come from purchased USDT capital."
+              : "Deposit BNB for USDT · buy VIP levels · connect API for trading P/L stats."}
           </Text>
 
           <Pressable
@@ -487,7 +489,7 @@ export default function ProfileScreen() {
             {syncing ? (
               <ActivityIndicator color="#111" />
             ) : (
-              <Text style={styles.refreshBtnText}>Refresh Account Capital</Text>
+              <Text style={styles.refreshBtnText}>Refresh trading stats</Text>
             )}
           </Pressable>
         </View>
@@ -506,7 +508,7 @@ export default function ProfileScreen() {
                 charts
               </Text>
             </View>
-            <VipMiniSpark capital={capital} />
+            <VipMiniSpark capital={levelCapital} />
             <Ionicons name="chevron-forward" size={16} color={MUTED} />
           </Pressable>
           <Pressable
