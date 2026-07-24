@@ -10,8 +10,11 @@ export default function ProtectedRoute({
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100">
-        <p className="text-slate-500">Loading...</p>
+      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+        <div className="text-center">
+          <div className="mx-auto mb-3 h-10 w-10 animate-pulse rounded-xl bg-gradient-to-br from-blue-500 to-cyan-400" />
+          <p className="text-sm text-slate-400">Loading admin session…</p>
+        </div>
       </div>
     );
   }

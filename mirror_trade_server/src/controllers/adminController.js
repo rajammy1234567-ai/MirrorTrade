@@ -34,15 +34,48 @@ const formatUser = (user) => ({
 // @route   GET /api/admin/stats
 // @access  Private/Admin
 const getStats = async (req, res) => {
-  const [totalUsers, activeUsers, admins, depositAgg] = await Promise.all([
+  const [
+    totalUsers,
+    activeUsers,
+    admins,
+    walletAgg,
+    pendingDeposits,
+    creditedDeposits,
+    pendingWithdrawals,
+    paidWithdrawals,
+    pendingDepositVolume,
+    pendingWithdrawVolume,
+  ] = await Promise.all([
     User.countDocuments({ role: "user" }),
     User.countDocuments({ role: "user", isActive: true }),
     User.countDocuments({ role: "admin" }),
     User.aggregate([
       { $match: { role: "user" } },
-      { $group: { _id: null, total: { $sum: "$totalDeposit" } } },
+      {
+        $group: {
+          _id: null,
+          totalLevelCapital: { $sum: "$totalDeposit" },
+          totalUsdtBalance: { $sum: "$usdtBalance" },
+          totalEarnings: { $sum: "$walletBalance" },
+          totalExchangeCapital: { $sum: "$exchangeCapital" },
+        },
+      },
+    ]),
+    DepositRequest.countDocuments({ status: "pending" }),
+    DepositRequest.countDocuments({ status: "credited" }),
+    WithdrawRequest.countDocuments({ status: "pending" }),
+    WithdrawRequest.countDocuments({ status: "paid" }),
+    DepositRequest.aggregate([
+      { $match: { status: "pending" } },
+      { $group: { _id: null, total: { $sum: "$amountUsdt" } } },
+    ]),
+    WithdrawRequest.aggregate([
+      { $match: { status: "pending" } },
+      { $group: { _id: null, total: { $sum: "$amount" } } },
     ]),
   ]);
+
+  const agg = walletAgg[0] || {};
 
   res.json({
     success: true,
@@ -51,7 +84,20 @@ const getStats = async (req, res) => {
       activeUsers,
       inactiveUsers: totalUsers - activeUsers,
       admins,
-      totalDeposits: depositAgg[0]?.total || 0,
+      /** Legacy alias — level capital (VIP purchases), USD */
+      totalDeposits: agg.totalLevelCapital || 0,
+      totalLevelCapital: agg.totalLevelCapital || 0,
+      totalUsdtBalance: agg.totalUsdtBalance || 0,
+      totalEarnings: agg.totalEarnings || 0,
+      totalExchangeCapital: agg.totalExchangeCapital || 0,
+      pendingDeposits,
+      creditedDeposits,
+      pendingWithdrawals,
+      paidWithdrawals,
+      pendingDepositVolume: pendingDepositVolume[0]?.total || 0,
+      pendingWithdrawVolume: pendingWithdrawVolume[0]?.total || 0,
+      currency: "USD",
+      unit: "USDT",
     },
   });
 };

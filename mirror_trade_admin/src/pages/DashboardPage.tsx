@@ -1,226 +1,254 @@
-import { useEffect, useState } from "react";
-import { api, type AuthUser, type DashboardStats } from "../lib/api";
-import { formatMoney } from "../lib/currency";
-import { useAuth } from "../context/AuthContext";
+import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import PageHeader from "../components/PageHeader";
+import StatusBadge from "../components/StatusBadge";
+import {
+  api,
+  getErrorMessage,
+  type DashboardStats,
+  type DepositRow,
+  type WithdrawRow,
+} from "../lib/api";
+import { formatDate, formatMoney, shortHash } from "../lib/currency";
 
 export default function DashboardPage() {
-  const { user, logout } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [users, setUsers] = useState<AuthUser[]>([]);
+  const [pendingDeposits, setPendingDeposits] = useState<DepositRow[]>([]);
+  const [pendingWithdrawals, setPendingWithdrawals] = useState<WithdrawRow[]>(
+    []
+  );
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const [statsRes, usersRes] = await Promise.all([
+      const [statsRes, depRes, wdRes] = await Promise.all([
         api.get("/admin/stats"),
-        api.get("/admin/users"),
+        api.get("/admin/deposits", { params: { status: "pending" } }),
+        api.get("/admin/withdrawals", { params: { status: "pending" } }),
       ]);
       setStats(statsRes.data.data);
-      setUsers(usersRes.data.data || []);
-    } catch (err: unknown) {
-      const message =
-        // @ts-expect-error axios error shape
-        err?.response?.data?.message ||
-        (err instanceof Error ? err.message : "Failed to load dashboard");
-      setError(message);
+      setPendingDeposits((depRes.data.data || []).slice(0, 5));
+      setPendingWithdrawals((wdRes.data.data || []).slice(0, 5));
+    } catch (err) {
+      setError(getErrorMessage(err, "Failed to load dashboard"));
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
-  const toggleStatus = async (id: string, isActive: boolean) => {
-    try {
-      await api.patch(`/admin/users/${id}/status`, { isActive: !isActive });
-      await load();
-    } catch (err: unknown) {
-      const message =
-        // @ts-expect-error axios error shape
-        err?.response?.data?.message || "Failed to update user";
-      setError(message);
-    }
-  };
-
-  const creditDeposit = async (id: string, name: string) => {
-    const raw = window.prompt(
-      `Set exchange capital (for VIP levels) for ${name}:`,
-      "100"
-    );
-    if (raw == null) return;
-    const amount = Number(raw);
-    if (!amount || amount <= 0) {
-      setError("Enter a valid deposit amount");
-      return;
-    }
-    try {
-      const res = await api.post(`/admin/users/${id}/deposit`, { amount });
-      const ranks = res.data?.ranks;
-      if (ranks) {
-        window.alert(
-          `Deposit ${formatMoney(amount)} credited.\nT-VIP: ${ranks.tVip}\nC-VIP: ${ranks.cVip}`
-        );
-      }
-      await load();
-    } catch (err: unknown) {
-      const message =
-        // @ts-expect-error axios error shape
-        err?.response?.data?.message || "Failed to credit deposit";
-      setError(message);
-    }
-  };
+  const cards = [
+    {
+      label: "Total Users",
+      value: stats?.totalUsers ?? 0,
+      hint: `${stats?.activeUsers ?? 0} active`,
+      tone: "from-blue-500 to-blue-600",
+    },
+    {
+      label: "Level Capital",
+      value: formatMoney(stats?.totalLevelCapital ?? stats?.totalDeposits ?? 0),
+      hint: "VIP purchases (USD)",
+      tone: "from-indigo-500 to-violet-600",
+    },
+    {
+      label: "USDT Deposits",
+      value: formatMoney(stats?.totalUsdtBalance ?? 0),
+      hint: "Spendable balance held",
+      tone: "from-cyan-500 to-teal-600",
+    },
+    {
+      label: "Earnings Pool",
+      value: formatMoney(stats?.totalEarnings ?? 0),
+      hint: "Withdrawable wallets",
+      tone: "from-emerald-500 to-green-600",
+    },
+    {
+      label: "Pending Deposits",
+      value: stats?.pendingDeposits ?? 0,
+      hint: formatMoney(stats?.pendingDepositVolume ?? 0) + " volume",
+      tone: "from-amber-500 to-orange-500",
+    },
+    {
+      label: "Pending Withdrawals",
+      value: stats?.pendingWithdrawals ?? 0,
+      hint: formatMoney(stats?.pendingWithdrawVolume ?? 0) + " volume",
+      tone: "from-rose-500 to-pink-600",
+    },
+  ];
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-blue-600">
-              MirrorTrade Admin
-            </p>
-            <h1 className="text-lg font-bold text-slate-900">Dashboard</h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="hidden text-sm text-slate-600 sm:inline">
-              {user?.email}
-            </span>
-            <button
-              onClick={logout}
-              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            >
-              Logout
-            </button>
-          </div>
+    <div>
+      <PageHeader
+        title="Dashboard"
+        description="Live overview of users, dual-wallet balances, and ops queues that need action."
+        actions={
+          <button
+            type="button"
+            onClick={load}
+            disabled={loading}
+            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
+          >
+            {loading ? "Refreshing…" : "Refresh"}
+          </button>
+        }
+      />
+
+      {error ? (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
         </div>
-      </header>
+      ) : null}
 
-      <main className="mx-auto max-w-6xl px-4 py-8">
-        {error ? (
-          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
-        ) : null}
-
-        {loading ? (
-          <p className="text-slate-500">Loading...</p>
-        ) : (
-          <>
-            <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-              {[
-                { label: "Total Users", value: stats?.totalUsers ?? 0 },
-                { label: "Active Users", value: stats?.activeUsers ?? 0 },
-                { label: "Inactive Users", value: stats?.inactiveUsers ?? 0 },
-                { label: "Admins", value: stats?.admins ?? 0 },
-                {
-                  label: "Total Deposits (INR)",
-                  value: formatMoney(stats?.totalDeposits ?? 0),
-                },
-              ].map((card) => (
-                <div
-                  key={card.label}
-                  className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-                >
-                  <p className="text-sm text-slate-500">{card.label}</p>
-                  <p className="mt-2 text-3xl font-bold text-slate-900">
+      {loading && !stats ? (
+        <p className="text-slate-500">Loading dashboard…</p>
+      ) : (
+        <>
+          <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {cards.map((card) => (
+              <div
+                key={card.label}
+                className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm"
+              >
+                <div className={`h-1 bg-gradient-to-r ${card.tone}`} />
+                <div className="p-5">
+                  <p className="text-sm font-medium text-slate-500">
+                    {card.label}
+                  </p>
+                  <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
                     {card.value}
                   </p>
+                  <p className="mt-1 text-xs text-slate-400">{card.hint}</p>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
+          </div>
 
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <div className="border-b border-slate-200 px-5 py-4">
-                <h2 className="font-semibold text-slate-900">Users</h2>
-                <p className="text-sm text-slate-500">
-                  T-VIP / C-VIP from exchange capital · admin can set capital if API sync fails
-                </p>
+          <div className="mb-6 grid gap-3 sm:grid-cols-3">
+            <Link
+              to="/deposits?status=pending"
+              className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900 transition hover:bg-amber-100"
+            >
+              Review pending deposits →
+            </Link>
+            <Link
+              to="/withdrawals?status=pending"
+              className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900 transition hover:bg-rose-100"
+            >
+              Process withdrawals →
+            </Link>
+            <Link
+              to="/users"
+              className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-900 transition hover:bg-blue-100"
+            >
+              Manage users & capital →
+            </Link>
+          </div>
+
+          <div className="grid gap-6 xl:grid-cols-2">
+            <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+                <div>
+                  <h2 className="font-semibold text-slate-900">
+                    Pending BNB deposits
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Approve after on-chain confirmation
+                  </p>
+                </div>
+                <Link
+                  to="/deposits"
+                  className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                >
+                  View all
+                </Link>
               </div>
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-left text-sm">
-                  <thead className="bg-slate-50 text-slate-500">
-                    <tr>
-                      <th className="px-5 py-3 font-medium">Name</th>
-                      <th className="px-5 py-3 font-medium">Email</th>
-                      <th className="px-5 py-3 font-medium">Deposit</th>
-                      <th className="px-5 py-3 font-medium">Wallet</th>
-                      <th className="px-5 py-3 font-medium">T-VIP</th>
-                      <th className="px-5 py-3 font-medium">C-VIP</th>
-                      <th className="px-5 py-3 font-medium">Referral</th>
-                      <th className="px-5 py-3 font-medium">Status</th>
-                      <th className="px-5 py-3 font-medium">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {users.map((u) => (
-                      <tr key={u.id} className="border-t border-slate-100">
-                        <td className="px-5 py-3 font-medium text-slate-900">
-                          {u.name}
-                        </td>
-                        <td className="px-5 py-3 text-slate-600">{u.email}</td>
-                        <td className="px-5 py-3 text-slate-600">
-                          {formatMoney(u.totalDeposit || 0)}
-                        </td>
-                        <td className="px-5 py-3 text-slate-600">
-                          {formatMoney(u.walletBalance || 0, 2)}
-                        </td>
-                        <td className="px-5 py-3">
-                          <span className="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">
-                            {u.tVipRank || "NONE"}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3">
-                          <span className="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
-                            {u.cVipRank || "NONE"}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3 font-mono text-xs text-slate-500">
-                          {u.referralCode || "—"}
-                        </td>
-                        <td className="px-5 py-3">
-                          <span
-                            className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                              u.isActive
-                                ? "bg-emerald-50 text-emerald-700"
-                                : "bg-slate-100 text-slate-600"
-                            }`}
-                          >
-                            {u.isActive ? "Active" : "Inactive"}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3">
-                          {u.role === "user" ? (
-                            <div className="flex flex-wrap gap-2">
-                              <button
-                                onClick={() => creditDeposit(u.id, u.name)}
-                                className="rounded-lg border border-blue-300 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
-                              >
-                                Set capital
-                              </button>
-                              <button
-                                onClick={() => toggleStatus(u.id, u.isActive)}
-                                className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                              >
-                                {u.isActive ? "Deactivate" : "Activate"}
-                              </button>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-slate-400">—</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="divide-y divide-slate-100">
+                {pendingDeposits.length === 0 ? (
+                  <p className="px-5 py-10 text-center text-sm text-slate-400">
+                    No pending deposits
+                  </p>
+                ) : (
+                  pendingDeposits.map((d) => (
+                    <div
+                      key={d.id}
+                      className="flex items-center justify-between gap-3 px-5 py-3.5"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-slate-900">
+                          {d.user?.name || "User"} · {d.user?.email}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {formatDate(d.createdAt)} · Tx {shortHash(d.txHash)}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold text-slate-900">
+                          {formatMoney(d.amountUsdt)}
+                        </p>
+                        <StatusBadge status={d.status} />
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
-            </div>
-          </>
-        )}
-      </main>
+            </section>
+
+            <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+                <div>
+                  <h2 className="font-semibold text-slate-900">
+                    Pending withdrawals
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Pay from earnings only (walletBalance)
+                  </p>
+                </div>
+                <Link
+                  to="/withdrawals"
+                  className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                >
+                  View all
+                </Link>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {pendingWithdrawals.length === 0 ? (
+                  <p className="px-5 py-10 text-center text-sm text-slate-400">
+                    No pending withdrawals
+                  </p>
+                ) : (
+                  pendingWithdrawals.map((w) => (
+                    <div
+                      key={w.id}
+                      className="flex items-center justify-between gap-3 px-5 py-3.5"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-slate-900">
+                          {w.user?.name || "User"} · {w.user?.email}
+                        </p>
+                        <p className="truncate font-mono text-xs text-slate-500">
+                          {shortHash(w.payoutAddress, 10, 8)}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold text-slate-900">
+                          {formatMoney(w.amount)}
+                        </p>
+                        <StatusBadge status={w.status} />
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+          </div>
+        </>
+      )}
     </div>
   );
 }
