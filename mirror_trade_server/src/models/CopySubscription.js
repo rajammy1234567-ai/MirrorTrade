@@ -17,7 +17,7 @@ const copySubscriptionSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
-    /** Allocated capital in INR (app denomination) */
+    /** Allocated capital in USDT (paper book) */
     amount: { type: Number, required: true, min: 1 },
     maxDd: { type: Number, required: true, min: 1, max: 100 },
     multiplier: { type: Number, required: true, min: 1, max: 10, default: 1 },

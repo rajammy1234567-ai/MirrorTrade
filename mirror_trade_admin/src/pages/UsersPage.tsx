@@ -31,7 +31,9 @@ export default function UsersPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await api.get("/admin/users");
+      const res = await api.get("/admin/users", {
+        params: { page: 1, limit: 200 },
+      });
       setUsers(res.data.data || []);
     } catch (err) {
       setError(getErrorMessage(err, "Failed to load users"));

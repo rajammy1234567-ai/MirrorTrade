@@ -173,6 +173,12 @@ export default function BotsScreen() {
 
   return (
     <Screen tabScreen>
+      <View style={styles.demoBanner}>
+        <Ionicons name="flask-outline" size={14} color="#FBBF24" />
+        <Text style={styles.demoBannerText}>
+          Demo bots · local simulation only (not live exchange execution)
+        </Text>
+      </View>
       {/* ── Top tabs ── */}
       <View style={styles.topBar}>
         <View style={styles.mainTabs}>
@@ -959,6 +965,25 @@ function pnlColor(n: number) {
 /* ─── styles ─── */
 
 const styles = StyleSheet.create({
+  demoBanner: {
+    marginBottom: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(251,191,36,0.35)",
+    backgroundColor: "rgba(251,191,36,0.08)",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  demoBannerText: {
+    flex: 1,
+    fontSize: 11,
+    lineHeight: 15,
+    color: "#FCD34D",
+    fontWeight: "600",
+  },
   topBar: {
     marginTop: 2,
     flexDirection: "row",

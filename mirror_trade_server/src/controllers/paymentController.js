@@ -310,8 +310,19 @@ const webhook = async (req, res) => {
   try {
     const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
     const signature = req.headers["x-razorpay-signature"];
+    const isProd = process.env.NODE_ENV === "production";
 
-    if (webhookSecret) {
+    // Production must always verify webhook HMAC
+    if (!webhookSecret) {
+      if (isProd) {
+        console.error("RAZORPAY_WEBHOOK_SECRET missing — rejecting webhook");
+        return res.status(503).json({
+          success: false,
+          message: "Webhook not configured",
+        });
+      }
+      console.warn("RAZORPAY_WEBHOOK_SECRET empty — accepting unsigned webhook (dev only)");
+    } else {
       const raw =
         req.rawBody ||
         (Buffer.isBuffer(req.body)

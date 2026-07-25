@@ -26,6 +26,12 @@ const {
   maybePaySameLevelOnRankUp,
 } = require("./capitalService");
 const { countDirects, calculateTeamBusiness } = require("./teamBusiness");
+const {
+  isEvmAddress,
+  isTxHash,
+  isProduction,
+  allowDemoFeatures,
+} = require("../utils/validate");
 
 function round2(n) {
   return Math.round(Number(n) * 100) / 100;
@@ -109,11 +115,29 @@ async function createDepositRequest({
     );
   }
 
-  if (
-    !BNB_DEPOSIT_ADDRESS ||
-    BNB_DEPOSIT_ADDRESS.includes("0000000000000000000000000000000000000000")
-  ) {
-    // Still allow creating request so admin can configure later; warn client
+  const normalizedTx = txHash ? String(txHash).trim() : null;
+  if (normalizedTx) {
+    if (!isTxHash(normalizedTx)) {
+      throw Object.assign(
+        new Error("Invalid transaction hash (expected 0x + 64 hex chars)"),
+        { statusCode: 400 }
+      );
+    }
+    const reused = await DepositRequest.findOne({
+      txHash: new RegExp(`^${normalizedTx}$`, "i"),
+      status: { $in: ["pending", "credited"] },
+    });
+    if (reused) {
+      throw Object.assign(
+        new Error("This transaction hash was already submitted"),
+        { statusCode: 400 }
+      );
+    }
+  } else if (isProduction()) {
+    throw Object.assign(
+      new Error("Transaction hash is required for deposits"),
+      { statusCode: 400 }
+    );
   }
 
   let bnbAmt = amountBnb != null ? round2(amountBnb) : null;
@@ -128,16 +152,19 @@ async function createDepositRequest({
     coin: DEPOSIT_COIN,
     network: BNB_NETWORK,
     depositAddress: BNB_DEPOSIT_ADDRESS,
-    txHash: txHash ? String(txHash).trim() : null,
+    txHash: normalizedTx,
     status: "pending",
   });
 
-  // Demo / staging auto-credit when enabled and txHash provided
-  if (AUTO_CREDIT_DEPOSITS && req.txHash) {
+  // Auto-credit only in non-production demo/staging (never force in prod)
+  const canAutoCredit =
+    AUTO_CREDIT_DEPOSITS && req.txHash && allowDemoFeatures() && !isProduction();
+
+  if (canAutoCredit) {
     return approveDepositRequest({
       depositId: req._id,
       adminId: null,
-      note: "Auto-credited (AUTO_CREDIT_DEPOSITS)",
+      note: "Auto-credited (demo AUTO_CREDIT_DEPOSITS)",
     });
   }
 
@@ -315,10 +342,22 @@ async function requestWithdraw({
       { statusCode: 400 }
     );
   }
-  if (!payoutAddress || String(payoutAddress).trim().length < 10) {
+  const addr = payoutAddress ? String(payoutAddress).trim() : "";
+  if (!addr || addr.length < 10) {
     throw Object.assign(new Error("Valid payout address is required"), {
       statusCode: 400,
     });
+  }
+  // BSC / EVM address validation when network looks like BNB/BSC
+  const net = String(network || BNB_NETWORK).toUpperCase();
+  if (
+    (net.includes("BSC") || net.includes("BEP") || net.includes("BNB")) &&
+    !isEvmAddress(addr)
+  ) {
+    throw Object.assign(
+      new Error("Payout address must be a valid BSC address (0x + 40 hex)"),
+      { statusCode: 400 }
+    );
   }
 
   const user = await User.findById(userId);
@@ -343,7 +382,7 @@ async function requestWithdraw({
     user: userId,
     amount: amt,
     currency: "USDT",
-    payoutAddress: String(payoutAddress).trim(),
+    payoutAddress: addr,
     network: network || BNB_NETWORK,
     status: "pending",
   });
@@ -352,7 +391,7 @@ async function requestWithdraw({
     user: userId,
     type: "WITHDRAWAL",
     amount: amt,
-    note: `Withdraw request · $${amt} USDT → ${String(payoutAddress).slice(0, 10)}…`,
+    note: `Withdraw request · $${amt} USDT → ${addr.slice(0, 10)}…`,
   });
 
   return {

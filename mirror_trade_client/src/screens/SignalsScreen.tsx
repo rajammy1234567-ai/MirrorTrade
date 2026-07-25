@@ -51,8 +51,15 @@ export default function SignalsScreen({ navigation }: Props) {
         <View style={{ width: 36 }} />
       </View>
 
+      <View style={styles.demoBanner}>
+        <Ionicons name="flask-outline" size={15} color="#FBBF24" />
+        <Text style={styles.demoBannerText}>
+          Demo feed · executes local paper positions only (not live exchange)
+        </Text>
+      </View>
+
       <Text style={styles.sub}>
-        Live setups from providers · tap Execute to open a position
+        Practice setups · tap Execute to open a demo position
       </Text>
 
       <View style={styles.list}>
@@ -145,6 +152,25 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   navTitle: { fontSize: 16, fontWeight: "700", color: colors.text },
+  demoBanner: {
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(251,191,36,0.35)",
+    backgroundColor: "rgba(251,191,36,0.08)",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  demoBannerText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 16,
+    color: "#FCD34D",
+    fontWeight: "500",
+  },
   sub: { marginTop: 12, fontSize: 13, color: colors.muted },
   list: { marginTop: 16, gap: 12 },
   card: {

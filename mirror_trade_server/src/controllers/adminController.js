@@ -102,15 +102,46 @@ const getStats = async (req, res) => {
   });
 };
 
-// @desc    List all users
-// @route   GET /api/admin/users
+// @desc    List users (paginated + optional search)
+// @route   GET /api/admin/users?page=1&limit=50&q=
 // @access  Private/Admin
 const getUsers = async (req, res) => {
-  const users = await User.find().select("-password").sort({ createdAt: -1 });
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const limit = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 50));
+  const skip = (page - 1) * limit;
+  const q = (req.query.q || req.query.search || "").toString().trim();
+
+  const filter = {};
+  if (q) {
+    const rx = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    filter.$or = [
+      { name: rx },
+      { email: rx },
+      { phone: rx },
+      { referralCode: rx },
+    ];
+  }
+  if (req.query.role === "user" || req.query.role === "admin") {
+    filter.role = req.query.role;
+  }
+  if (req.query.isActive === "true") filter.isActive = true;
+  if (req.query.isActive === "false") filter.isActive = false;
+
+  const [users, total] = await Promise.all([
+    User.find(filter)
+      .select("-password")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+    User.countDocuments(filter),
+  ]);
 
   res.json({
     success: true,
     count: users.length,
+    total,
+    page,
+    pages: Math.ceil(total / limit) || 1,
     data: users.map(formatUser),
   });
 };

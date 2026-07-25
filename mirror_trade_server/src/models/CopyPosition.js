@@ -23,7 +23,7 @@ const copyPositionSchema = new mongoose.Schema(
     pair: { type: String, required: true },
     symbol: { type: String, required: true },
     side: { type: String, enum: ["long", "short"], required: true },
-    /** Notional allocated to this leg (INR) */
+    /** Notional allocated to this leg (USDT) */
     notional: { type: Number, required: true },
     entry: { type: Number, required: true },
     current: { type: Number, required: true },

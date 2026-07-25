@@ -1,5 +1,13 @@
 require("dotenv").config();
 
+// Match server.js — help Atlas SRV resolve on some Windows/network setups
+try {
+  const dns = require("dns");
+  dns.setServers(["8.8.8.8", "1.1.1.1"]);
+} catch {
+  // non-fatal
+}
+
 const connectDB = require("./config/db");
 const User = require("./models/User");
 const { createUniqueReferralCode } = require("./services/referralService");
@@ -40,7 +48,35 @@ const seed = async () => {
 
     if (user) {
       await ensureReferralCode(user);
-      console.log("Demo user already exists:", demoEmail);
+      // Ensure demo account is usable for local demos
+      let dirty = false;
+      if (!user.isActive) {
+        user.isActive = true;
+        dirty = true;
+      }
+      if (!user.isEmailVerified) {
+        user.isEmailVerified = true;
+        dirty = true;
+      }
+      if (Number(user.usdtBalance || 0) < 100) {
+        user.usdtBalance = 500;
+        dirty = true;
+      }
+      if (Number(user.totalDeposit || 0) < 100) {
+        user.totalDeposit = 500;
+        user.capitalSource = user.capitalSource || "admin";
+        dirty = true;
+      }
+      if (Number(user.walletBalance || 0) < 10) {
+        user.walletBalance = 100;
+        dirty = true;
+      }
+      if (dirty) {
+        await user.save();
+        console.log("Demo user restored/topped up for local demos");
+      } else {
+        console.log("Demo user already exists:", demoEmail);
+      }
     } else {
       user = await User.create({
         name: "Demo User",
@@ -49,11 +85,16 @@ const seed = async () => {
         role: "user",
         referralCode: await createUniqueReferralCode("Demo User"),
         isEmailVerified: true,
+        usdtBalance: 500,
+        totalDeposit: 500,
+        walletBalance: 100,
+        capitalSource: "admin",
       });
       console.log("Demo user created:");
       console.log("  Email   :", demoEmail);
       console.log("  Password: User@123");
       console.log("  Referral:", user.referralCode);
+      console.log("  USDT    : 500 · VIP capital: 500 · Earnings: 100");
     }
 
     // Master traders for copy trading

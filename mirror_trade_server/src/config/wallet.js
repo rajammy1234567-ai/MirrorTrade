@@ -33,10 +33,12 @@ module.exports = {
   MIN_WITHDRAW_USDT: Number(process.env.MIN_WITHDRAW_USDT) || 10,
 
   /**
-   * When true, deposit requests with a txHash auto-credit (demo / staging).
-   * Production should keep false and use admin approve.
+   * When true, deposit requests with a txHash auto-credit (demo / staging only).
+   * Production forces false regardless of env (see walletService + allowDemoFeatures).
    */
   AUTO_CREDIT_DEPOSITS:
-    String(process.env.AUTO_CREDIT_DEPOSITS || "false").toLowerCase() ===
-    "true",
+    process.env.NODE_ENV === "production"
+      ? false
+      : String(process.env.AUTO_CREDIT_DEPOSITS || "false").toLowerCase() ===
+        "true",
 };

@@ -10,6 +10,7 @@
 const Trader = require("../models/Trader");
 const CopySubscription = require("../models/CopySubscription");
 const CopyPosition = require("../models/CopyPosition");
+const User = require("../models/User");
 const { getPrices } = require("./marketPrice");
 
 const SEED_TRADERS = [
@@ -387,7 +388,7 @@ async function startCopy({
   const mult = Number(multiplier) || 1;
 
   if (!Number.isFinite(amt) || amt < 100) {
-    const err = new Error("Minimum investment is ₹100");
+    const err = new Error("Minimum investment is $100 USDT");
     err.statusCode = 400;
     throw err;
   }
@@ -398,6 +399,36 @@ async function startCopy({
   }
   if (mult < 1 || mult > 5) {
     const err = new Error("Multiplier must be between 1x and 5x");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const user = await User.findById(userId);
+  if (!user || !user.isActive) {
+    const err = new Error("User not found or inactive");
+    err.statusCode = 401;
+    throw err;
+  }
+
+  // Allocatable capital = VIP level capital + USDT + exchange capital (stats)
+  // Paper mode still requires skin-in-the-game so users cannot allocate infinite size.
+  const usdt = Number(user.usdtBalance || 0);
+  const level = Number(user.totalDeposit || 0);
+  const exchange = Number(user.exchangeCapital || 0);
+  const allocatable = Math.max(usdt + level, exchange, 0);
+  const alreadyAllocated = await CopySubscription.aggregate([
+    { $match: { user: user._id, status: "active" } },
+    { $group: { _id: null, total: { $sum: "$amount" } } },
+  ]);
+  const used = Number(alreadyAllocated[0]?.total || 0);
+  const remaining = Math.max(0, allocatable - used);
+
+  if (amt > remaining) {
+    const err = new Error(
+      remaining <= 0
+        ? "No allocatable capital. Deposit USDT, buy a VIP level, or sync exchange capital first."
+        : `Insufficient capital. Available to allocate: $${remaining.toFixed(2)} USDT (you already allocate $${used.toFixed(2)}).`
+    );
     err.statusCode = 400;
     throw err;
   }
@@ -487,9 +518,9 @@ async function startCopy({
   return {
     subscription: formatSubscription(populated),
     positions: opened.map(formatPosition),
-    mode: "paper", // live exchange orders not placed — capital stays on exchange
+    mode: "paper",
     note:
-      "Copy session is live in MirrorTrade (paper book marked to Binance prices). Funds stay on your exchange; connect API for VIP capital only.",
+      "PAPER MODE: positions track live Binance marks for demo PnL. No real exchange orders are placed. Capital is not transferred.",
   };
 }
 

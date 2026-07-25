@@ -95,9 +95,10 @@ export default function CopySetupScreen({ route, navigation }: Props) {
       });
 
       const posCount = res.data?.positions?.length ?? 0;
+      const mode = res.data?.mode === "paper" ? "PAPER MODE" : "LIVE";
       Alert.alert(
-        "Copy started",
-        `You are now copying ${trader.name} with $${amount.toLocaleString("en-US")}.\n\n${posCount} position(s) opened · live Binance marks.\n\n${res.data?.note || ""}`,
+        `Copy started · ${mode}`,
+        `You are now copying ${trader.name} with $${amount.toLocaleString("en-US")}.\n\n${posCount} position(s) opened · live Binance marks.\n\n${res.data?.note || "Paper book — no real exchange orders."}`,
         [
           {
             text: "View Portfolio",
@@ -149,6 +150,14 @@ export default function CopySetupScreen({ route, navigation }: Props) {
         </Pressable>
         <Text style={styles.navTitle}>Setup Copy Trading</Text>
         <View style={{ width: 36 }} />
+      </View>
+
+      <View style={styles.paperBanner}>
+        <Ionicons name="flask-outline" size={16} color="#FBBF24" />
+        <Text style={styles.paperBannerText}>
+          Paper mode · tracks live prices, no real orders. Needs VIP capital,
+          USDT balance, or synced exchange capital (min $100).
+        </Text>
       </View>
 
       <View style={styles.traderCard}>
@@ -298,6 +307,25 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   navTitle: { fontSize: 16, fontWeight: "700", color: colors.text },
+  paperBanner: {
+    marginTop: 14,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(251,191,36,0.35)",
+    backgroundColor: "rgba(251,191,36,0.08)",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  paperBannerText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17,
+    color: "#FCD34D",
+    fontWeight: "500",
+  },
   traderCard: {
     marginTop: 18,
     flexDirection: "row",

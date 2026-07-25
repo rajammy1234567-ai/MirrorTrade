@@ -45,6 +45,9 @@ export default function LoginPage() {
           <p className="mt-1 text-sm text-slate-400">
             Operations console · USD / USDT wallet control
           </p>
+          <p className="mt-2 font-mono text-[11px] text-slate-500">
+            API: {import.meta.env.VITE_API_URL || "https://mirrortrade-api.onrender.com/api"}
+          </p>
         </div>
 
         <form

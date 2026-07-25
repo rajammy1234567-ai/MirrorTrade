@@ -218,33 +218,45 @@ const getMe = async (req, res) => {
  *
  * Body:
  *  - channel: "email" | "phone" | "both" | "demo" (default "demo")
- *  - code: optional OTP string (demo accepts any 6 digits or "123456")
+ *  - code: OTP string
  *
- * Production: swap demo OTP check for Twilio Verify / Firebase Auth token validation.
+ * Production: demo channel is blocked. Use real OTP provider (Twilio / Firebase).
+ * Dev/staging: demo channel accepts code "123456" or any 6-digit code.
  */
 const verify = async (req, res) => {
   try {
+    const { allowDemoFeatures, isProduction } = require("../utils/validate");
     const channel = (req.body.channel || "demo").toLowerCase();
     const code = req.body.code != null ? String(req.body.code).trim() : "";
 
-    // Demo OTP gate — replace with real OTP provider in production
-    if (channel !== "demo" && code) {
-      const ok =
-        code.length >= 4 &&
-        (/^\d{4,8}$/.test(code) || code === "123456");
-      if (!ok) {
+    if (channel === "demo") {
+      if (isProduction() && !allowDemoFeatures()) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "Demo verification is disabled in production. Use email/phone OTP.",
+        });
+      }
+      if (code && !/^\d{4,8}$/.test(code) && code !== "123456") {
         return res.status(400).json({
           success: false,
           message: "Invalid verification code",
         });
       }
-    } else if (channel === "demo" || !code) {
-      // For demo flow from TwoFA screen: any 6-digit code is fine when sent;
-      // also allow empty code only for channel "demo"
-      if (code && !/^\d{4,8}$/.test(code) && code !== "123456") {
+    } else {
+      // Non-demo: require a code. Until a real OTP provider is wired,
+      // only accept fixed test code in non-production.
+      if (!code || (!/^\d{4,8}$/.test(code) && code !== "123456")) {
         return res.status(400).json({
           success: false,
           message: "Invalid verification code",
+        });
+      }
+      if (isProduction() && !allowDemoFeatures() && code === "123456") {
+        return res.status(403).json({
+          success: false,
+          message:
+            "Test OTP is disabled in production. Integrate a real OTP provider.",
         });
       }
     }
@@ -254,7 +266,7 @@ const verify = async (req, res) => {
     res.json({
       success: true,
       message: result.rewardsCredited
-        ? `Verified! You and your referrer each received ₹${result.rewardAmount}.`
+        ? `Verified! You and your referrer each received $${result.rewardAmount} USDT.`
         : "Account verified successfully.",
       rewardsCredited: result.rewardsCredited,
       rewardAmount: result.rewardAmount,

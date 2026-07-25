@@ -1,0 +1,19 @@
+{
+  "name": "mirror-trade",
+  "private": true,
+  "version": "2.0.0",
+  "description": "MirrorTrade monorepo — server, Expo client, admin web",
+  "scripts": {
+    "install:all": "npm install --prefix mirror_trade_server && npm install --prefix mirror_trade_admin && npm install --prefix mirror_trade_client",
+    "seed": "npm run seed --prefix mirror_trade_server",
+    "dev:server": "npm run dev --prefix mirror_trade_server",
+    "dev:admin": "npm run dev --prefix mirror_trade_admin",
+    "dev:client": "npm start --prefix mirror_trade_client",
+    "start:server": "npm start --prefix mirror_trade_server",
+    "build:admin": "npm run build --prefix mirror_trade_admin",
+    "smoke": "node scripts/smoke-test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
