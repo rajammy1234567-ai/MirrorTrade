@@ -75,7 +75,7 @@ npm run smoke
 | Exchange API connect + capital sync | ✅ (when keys valid) |
 | Copy trading | ✅ **Paper mode** (Binance marks, no real orders) |
 | Admin dashboard / users / deposits / withdrawals | ✅ |
-| Bots / Signals | ⚠️ **Local demo simulation only** |
+| Bots / Signals | ✅ **API paper mode** (Mongo + Binance marks; not live exchange orders) |
 
 ## Production checklist
 
@@ -105,6 +105,8 @@ Before going live with real money:
 - `GET  /api/wallet` · deposit / withdraw / purchase-level
 - `GET  /api/plans` · `GET /api/plans/me`
 - `GET  /api/trade/traders` · copy / positions / portfolio
+- `GET  /api/trade/bots` · create / pause / stop / resume
+- `GET  /api/trade/signals` · execute (paper position)
 - `GET  /api/admin/stats` · users · deposits · withdrawals
 
 Full catalog: `GET /api/routes`.

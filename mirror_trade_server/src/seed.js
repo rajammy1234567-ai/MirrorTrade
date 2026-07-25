@@ -104,6 +104,12 @@ const seed = async () => {
     console.log(`Copy traders ready: ${traders.length}`);
     traders.forEach((t) => console.log(`  - ${t.name} (${t.id})`));
 
+    // Public signal feed
+    const { ensureSeedSignals, listSignals } = require("./services/signalService");
+    await ensureSeedSignals();
+    const signals = await listSignals();
+    console.log(`Signals ready: ${signals.length}`);
+
     process.exit(0);
   } catch (error) {
     console.error("Seed failed:", error.message);

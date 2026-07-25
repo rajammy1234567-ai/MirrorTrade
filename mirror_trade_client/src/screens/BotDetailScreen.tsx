@@ -1,20 +1,96 @@
-﻿import React from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+﻿import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import Screen from "../components/Screen";
 import GradientButton from "../components/GradientButton";
 import PnlText from "../components/PnlText";
 import TradingChart from "../components/TradingChart";
-import { useAppData } from "../context/AppDataContext";
+import { getApiErrorMessage, getBotRequest, type ApiBot } from "../config/api";
+import { useAppData, type Bot } from "../context/AppDataContext";
 import { RootStackParamList } from "../navigation/types";
 import { colors } from "../theme/colors";
 
 type Props = NativeStackScreenProps<RootStackParamList, "BotDetail">;
 
+function mapBot(b: ApiBot): Bot {
+  return {
+    id: b.id,
+    name: b.name,
+    type: b.type,
+    pair: b.pair,
+    market: b.market,
+    running: b.running,
+    stopped: b.stopped,
+    stopMode: b.stopMode,
+    stoppedAt: b.stoppedAt,
+    runtime: b.runtime,
+    pnl: b.pnl,
+    pnlPct: b.pnlPct,
+    investment: b.investment,
+    position: b.position,
+    unrealizedPnl: b.unrealizedPnl,
+    side: b.side,
+    lastActiveHours: b.lastActiveHours,
+    mode: b.mode,
+  };
+}
+
 export default function BotDetailScreen({ route, navigation }: Props) {
-  const { bots, pauseBot, stopBot, resumeStoppedBot } = useAppData();
-  const bot = bots.find((b) => b.id === route.params.botId);
+  const { bots, pauseBot, stopBot, resumeStoppedBot, refreshBots } =
+    useAppData();
+  const [busy, setBusy] = useState(false);
+  const [fetched, setFetched] = useState<Bot | null>(null);
+  const [loading, setLoading] = useState(false);
+  const fromList = bots.find((b) => b.id === route.params.botId);
+  const bot = fromList || fetched;
+
+  useEffect(() => {
+    if (fromList) return;
+    let alive = true;
+    setLoading(true);
+    getBotRequest(route.params.botId)
+      .then((res) => {
+        if (alive && res.success) setFetched(mapBot(res.data));
+      })
+      .catch(() => {
+        if (alive) setFetched(null);
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [fromList, route.params.botId]);
+
+  const run = async (fn: () => Promise<void>, goBack = false) => {
+    setBusy(true);
+    try {
+      await fn();
+      await refreshBots();
+      if (goBack) navigation.goBack();
+    } catch (err) {
+      Alert.alert("Bot action failed", getApiErrorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (loading && !bot) {
+    return (
+      <Screen>
+        <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />
+      </Screen>
+    );
+  }
 
   if (!bot) {
     return (
@@ -44,11 +120,11 @@ export default function BotDetailScreen({ route, navigation }: Props) {
             </View>
             <View style={{ flex: 1 }}>
               <GradientButton
-                label="Restart Bot"
-                onPress={() => {
-                  resumeStoppedBot(bot.id);
-                  navigation.goBack();
-                }}
+                label={busy ? "…" : "Restart Bot"}
+                disabled={busy}
+                onPress={() =>
+                  void run(() => resumeStoppedBot(bot.id), true)
+                }
               />
             </View>
           </View>
@@ -56,25 +132,31 @@ export default function BotDetailScreen({ route, navigation }: Props) {
           <View style={styles.footerRow}>
             <View style={{ flex: 1 }}>
               <GradientButton
-                label={bot.running ? "Pause Bot" : "Resume Bot"}
+                label={
+                  busy
+                    ? "…"
+                    : bot.running
+                      ? "Pause Bot"
+                      : "Resume Bot"
+                }
                 variant="ghost"
-                onPress={() => pauseBot(bot.id)}
+                disabled={busy}
+                onPress={() => void run(() => pauseBot(bot.id))}
               />
             </View>
             <View style={{ flex: 1 }}>
               <GradientButton
                 label="Stop Bot"
                 variant="danger"
+                disabled={busy}
                 onPress={() => {
                   Alert.alert("Stop bot", `Stop ${bot.name}?`, [
                     { text: "Cancel", style: "cancel" },
                     {
                       text: "Stop",
                       style: "destructive",
-                      onPress: () => {
-                        stopBot(bot.id);
-                        navigation.goBack();
-                      },
+                      onPress: () =>
+                        void run(() => stopBot(bot.id), true),
                     },
                   ]);
                 }}

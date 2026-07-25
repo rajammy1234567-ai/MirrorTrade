@@ -140,12 +140,13 @@ function formatTrader(doc, extra = {}) {
 }
 
 function formatPosition(doc) {
+  const sourceType = doc.sourceType || (doc.trader ? "trader" : "signal");
   return {
     id: String(doc._id),
-    subscriptionId: String(doc.subscription),
-    traderId: String(doc.trader),
-    source: doc.traderName || "Trader",
-    sourceType: "trader",
+    subscriptionId: doc.subscription ? String(doc.subscription) : null,
+    traderId: doc.trader ? String(doc.trader) : null,
+    source: doc.source || doc.traderName || "Trader",
+    sourceType,
     pair: doc.pair,
     side: doc.side,
     entry: doc.entry,
@@ -285,7 +286,14 @@ async function markUserPositions(userId) {
   if (!positions.length) return { positions: [], subscriptions: [] };
 
   const prices = await getPrices(positions.map((p) => p.symbol));
-  const subIds = [...new Set(positions.map((p) => String(p.subscription)))];
+  const subIds = [
+    ...new Set(
+      positions
+        .map((p) => p.subscription)
+        .filter(Boolean)
+        .map((s) => String(s))
+    ),
+  ];
 
   for (const pos of positions) {
     const current = prices[pos.symbol.toUpperCase()] || pos.current || pos.entry;
@@ -296,7 +304,7 @@ async function markUserPositions(userId) {
     await pos.save();
   }
 
-  // Update subscription equity + DD
+  // Update subscription equity + DD (skip signal-only positions)
   for (const sid of subIds) {
     // eslint-disable-next-line no-await-in-loop
     await refreshSubscriptionEquity(sid);
@@ -494,6 +502,8 @@ async function startCopy({
         subscription: sub._id,
         trader: trader._id,
         traderName: trader.name,
+        sourceType: "trader",
+        source: trader.name,
         pair: leg.pair,
         symbol: leg.symbol,
         side: leg.side,

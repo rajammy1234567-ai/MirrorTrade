@@ -11,15 +11,24 @@ const copyPositionSchema = new mongoose.Schema(
     subscription: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "CopySubscription",
-      required: true,
+      required: false,
+      default: null,
       index: true,
     },
     trader: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Trader",
-      required: true,
+      required: false,
+      default: null,
     },
     traderName: { type: String, default: "" },
+    /** trader | signal | bot — portfolio source label */
+    sourceType: {
+      type: String,
+      enum: ["trader", "signal", "bot"],
+      default: "trader",
+    },
+    source: { type: String, default: "" },
     pair: { type: String, required: true },
     symbol: { type: String, required: true },
     side: { type: String, enum: ["long", "short"], required: true },

@@ -82,8 +82,21 @@ async function main() {
     const portfolio = await req("GET", "/trade/portfolio", null, userToken);
     check("GET /trade/portfolio", portfolio.status === 200 && portfolio.data.success);
 
+    const signals = await req("GET", "/trade/signals");
+    check(
+      "GET /trade/signals",
+      signals.status === 200 && signals.data.success,
+      `count=${signals.data.count}`
+    );
+
+    const bots = await req("GET", "/trade/bots", null, userToken);
+    check("GET /trade/bots", bots.status === 200 && bots.data.success);
+
     const exchanges = await req("GET", "/exchanges", null, userToken);
     check("GET /exchanges", exchanges.status === 200);
+
+    const catalog = await req("GET", "/exchanges/catalog");
+    check("GET /exchanges/catalog", catalog.status === 200 && catalog.data.success);
   }
 
   // Admin login

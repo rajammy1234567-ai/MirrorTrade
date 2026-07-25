@@ -51,12 +51,20 @@ const ROUTE_CATALOG = [
   { method: "POST", path: "/api/admin/withdrawals/:id/reject", access: "admin" },
   { method: "GET", path: "/api/trade/traders", access: "public" },
   { method: "GET", path: "/api/trade/traders/:id", access: "public" },
+  { method: "GET", path: "/api/trade/signals", access: "public" },
+  { method: "POST", path: "/api/trade/signals/:id/execute", access: "private" },
   { method: "POST", path: "/api/trade/copy", access: "private" },
   { method: "POST", path: "/api/trade/copy/:id/stop", access: "private" },
   { method: "GET", path: "/api/trade/my-copies", access: "private" },
   { method: "GET", path: "/api/trade/positions", access: "private" },
   { method: "POST", path: "/api/trade/positions/:id/close", access: "private" },
   { method: "GET", path: "/api/trade/portfolio", access: "private" },
+  { method: "GET", path: "/api/trade/bots", access: "private" },
+  { method: "POST", path: "/api/trade/bots", access: "private" },
+  { method: "GET", path: "/api/trade/bots/:id", access: "private" },
+  { method: "POST", path: "/api/trade/bots/:id/pause", access: "private" },
+  { method: "POST", path: "/api/trade/bots/:id/stop", access: "private" },
+  { method: "POST", path: "/api/trade/bots/:id/resume", access: "private" },
 ];
 
 router.get("/health", (req, res) => {

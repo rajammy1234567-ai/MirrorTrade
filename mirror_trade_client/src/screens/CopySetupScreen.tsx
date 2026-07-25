@@ -30,7 +30,7 @@ type Props = NativeStackScreenProps<RootStackParamList, "CopySetup">;
 
 export default function CopySetupScreen({ route, navigation }: Props) {
   const { user } = useAuth();
-  const { startCopy } = useAppData();
+  const { addNotification } = useAppData();
   const [trader, setTrader] = useState<ApiTrader | null>(null);
   const [loadingTrader, setLoadingTrader] = useState(true);
   const [amount, setAmount] = useState(500);
@@ -85,13 +85,11 @@ export default function CopySetupScreen({ route, navigation }: Props) {
         throw new Error(res.message || "Failed to start copy");
       }
 
-      // Keep local AppData in sync for any UI still reading it
-      startCopy({
-        traderId: trader.id,
-        amount,
-        maxDd,
-        multiplier,
-        copyOpen,
+      addNotification({
+        title: "Copy trading started",
+        body: `Allocating $${amount.toLocaleString("en-US")} · ${multiplier}x · ${trader.name}`,
+        time: "Just now",
+        type: "trade",
       });
 
       const posCount = res.data?.positions?.length ?? 0;

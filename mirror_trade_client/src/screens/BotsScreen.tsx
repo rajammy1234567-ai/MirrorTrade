@@ -1,14 +1,22 @@
-﻿import React, { useMemo, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+﻿import React, { useCallback, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import Screen from "../components/Screen";
 import PnlText from "../components/PnlText";
-import { useAppData } from "../context/AppDataContext";
+import { getApiErrorMessage } from "../config/api";
+import { useAppData, type Bot } from "../context/AppDataContext";
+import { useAuth } from "../context/AuthContext";
 import { RootStackParamList } from "../navigation/types";
 import { colors } from "../theme/colors";
-import type { Bot } from "../data/mock";
 
 type MainTab = "Running" | "Stopped" | "Record";
 type MarketFilter = "Last24H" | "All" | "Spot" | "Futures";
@@ -33,7 +41,22 @@ const HOLDING_CLASSES = [
 export default function BotsScreen() {
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { bots, pauseBot, stopBot, resumeStoppedBot } = useAppData();
+  const { user } = useAuth();
+  const {
+    bots,
+    botsLoading,
+    botsError,
+    refreshBots,
+    pauseBot,
+    stopBot,
+    resumeStoppedBot,
+  } = useAppData();
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshBots();
+    }, [refreshBots])
+  );
 
   const [mainTab, setMainTab] = useState<MainTab>("Running");
   const [marketFilter, setMarketFilter] = useState<MarketFilter>("All");
@@ -134,6 +157,18 @@ export default function BotsScreen() {
     }
   };
 
+  const runBotAction = async (
+    action: () => Promise<void>,
+    onOk?: () => void
+  ) => {
+    try {
+      await action();
+      onOk?.();
+    } catch (err) {
+      Alert.alert("Bot action failed", getApiErrorMessage(err));
+    }
+  };
+
   const confirmStop = (bot: Bot) => {
     Alert.alert(
       "Stop bot",
@@ -143,11 +178,11 @@ export default function BotsScreen() {
         {
           text: "Stop",
           style: "destructive",
-          onPress: () => {
-            stopBot(bot.id);
-            setMainTab("Stopped");
-            setStoppedFilter("Normally");
-          },
+          onPress: () =>
+            void runBotAction(() => stopBot(bot.id), () => {
+              setMainTab("Stopped");
+              setStoppedFilter("Normally");
+            }),
         },
       ]
     );
@@ -161,11 +196,11 @@ export default function BotsScreen() {
         { text: "Cancel", style: "cancel" },
         {
           text: "Restart",
-          onPress: () => {
-            resumeStoppedBot(bot.id);
-            setMainTab("Running");
-            setMarketFilter("All");
-          },
+          onPress: () =>
+            void runBotAction(() => resumeStoppedBot(bot.id), () => {
+              setMainTab("Running");
+              setMarketFilter("All");
+            }),
         },
       ]
     );
@@ -176,9 +211,22 @@ export default function BotsScreen() {
       <View style={styles.demoBanner}>
         <Ionicons name="flask-outline" size={14} color="#FBBF24" />
         <Text style={styles.demoBannerText}>
-          Demo bots · local simulation only (not live exchange execution)
+          Paper bots · API + live Binance marks (not live exchange orders)
         </Text>
       </View>
+      {!user ? (
+        <View style={styles.loginHint}>
+          <Text style={styles.loginHintText}>
+            Sign in to create and manage bots on the server.
+          </Text>
+        </View>
+      ) : null}
+      {botsLoading && bots.length === 0 ? (
+        <ActivityIndicator color={colors.primary} style={{ marginTop: 24 }} />
+      ) : null}
+      {botsError ? (
+        <Text style={styles.errorText}>{botsError}</Text>
+      ) : null}
       {/* ── Top tabs ── */}
       <View style={styles.topBar}>
         <View style={styles.mainTabs}>
@@ -478,7 +526,7 @@ export default function BotsScreen() {
                   onPress={() =>
                     navigation.navigate("BotDetail", { botId: bot.id })
                   }
-                  onPause={() => pauseBot(bot.id)}
+                  onPause={() => void runBotAction(() => pauseBot(bot.id))}
                   onStop={() => confirmStop(bot)}
                 />
               ))}
@@ -982,6 +1030,22 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 15,
     color: "#FCD34D",
+    fontWeight: "600",
+  },
+  loginHint: {
+    marginBottom: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  loginHintText: { fontSize: 12, color: colors.muted, lineHeight: 17 },
+  errorText: {
+    marginBottom: 8,
+    fontSize: 12,
+    color: colors.loss,
     fontWeight: "600",
   },
   topBar: {

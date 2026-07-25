@@ -799,3 +799,150 @@ export async function listMyWithdrawalsRequest(limit = 20) {
   }>("/wallet/withdrawals", { params: { limit } });
   return data;
 }
+
+// ─── Bots (paper + live marks) ──────────────────────────────
+
+export type ApiBot = {
+  id: string;
+  name: string;
+  type: "Grid" | "DCA";
+  pair: string;
+  symbol?: string;
+  market: "Spot" | "Futures";
+  side?: "long" | "short";
+  investment: number;
+  grids?: number | null;
+  low?: number | null;
+  high?: number | null;
+  entry?: number;
+  current?: number;
+  position?: number;
+  pnl: number;
+  pnlPct: number;
+  unrealizedPnl?: number;
+  running: boolean;
+  stopped?: boolean;
+  stopMode?: "Normally" | "Automatically";
+  stoppedAt?: string;
+  runtime: string;
+  lastActiveHours?: number;
+  mode?: string;
+  startedAt?: string;
+  createdAt?: string;
+};
+
+export async function listBotsRequest() {
+  const { data } = await api.get<{
+    success: boolean;
+    count: number;
+    data: ApiBot[];
+  }>("/trade/bots");
+  return data;
+}
+
+export async function getBotRequest(botId: string) {
+  const { data } = await api.get<{ success: boolean; data: ApiBot }>(
+    `/trade/bots/${botId}`
+  );
+  return data;
+}
+
+export async function createBotRequest(payload: {
+  type: "Grid" | "DCA";
+  market?: "Spot" | "Futures";
+  pair: string;
+  investment: number;
+  side?: "long" | "short";
+  grids?: number;
+  low?: number;
+  high?: number;
+  name?: string;
+}) {
+  const { data } = await api.post<{
+    success: boolean;
+    message: string;
+    data: { bot: ApiBot; mode: string; note?: string };
+  }>("/trade/bots", payload);
+  return data;
+}
+
+export async function pauseBotRequest(botId: string) {
+  const { data } = await api.post<{
+    success: boolean;
+    message: string;
+    data: ApiBot;
+  }>(`/trade/bots/${botId}/pause`);
+  return data;
+}
+
+export async function stopBotRequest(botId: string) {
+  const { data } = await api.post<{
+    success: boolean;
+    message: string;
+    data: ApiBot;
+  }>(`/trade/bots/${botId}/stop`);
+  return data;
+}
+
+export async function resumeBotRequest(botId: string) {
+  const { data } = await api.post<{
+    success: boolean;
+    message: string;
+    data: ApiBot;
+  }>(`/trade/bots/${botId}/resume`);
+  return data;
+}
+
+// ─── Signals ────────────────────────────────────────────────
+
+export type ApiSignal = {
+  id: string;
+  provider: string;
+  pair: string;
+  symbol?: string;
+  direction: "long" | "short";
+  entry: number;
+  target: number;
+  stopLoss: number;
+  time: string;
+  publishedAt?: string;
+};
+
+export async function listSignalsRequest() {
+  const { data } = await api.get<{
+    success: boolean;
+    count: number;
+    data: ApiSignal[];
+  }>("/trade/signals");
+  return data;
+}
+
+export async function executeSignalRequest(signalId: string, amount = 100) {
+  const { data } = await api.post<{
+    success: boolean;
+    message: string;
+    data: {
+      position: ApiCopyPosition;
+      mode: string;
+      note?: string;
+    };
+  }>(`/trade/signals/${signalId}/execute`, { amount });
+  return data;
+}
+
+// ─── Exchange catalog (server-supported ids) ────────────────
+
+export async function listExchangeCatalogRequest() {
+  try {
+    const { data } = await api.get<{
+      success: boolean;
+      data: Array<{ id: string; needsPassphrase: boolean }>;
+    }>("/exchanges/catalog");
+    return data;
+  } catch (err) {
+    if (isRouteMissing(err) || isNetworkError(err)) {
+      return { success: true, data: [] as Array<{ id: string; needsPassphrase: boolean }> };
+    }
+    throw err;
+  }
+}

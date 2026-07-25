@@ -1,4 +1,6 @@
 const copyTrade = require("../services/copyTradeService");
+const botService = require("../services/botService");
+const signalService = require("../services/signalService");
 
 // GET /api/trade/traders
 const listTraders = async (req, res) => {
@@ -130,6 +132,134 @@ const portfolio = async (req, res) => {
   }
 };
 
+// ─── Bots (paper) ───────────────────────────────────────────
+
+const listBots = async (req, res) => {
+  try {
+    const data = await botService.listBots(req.user._id);
+    res.json({ success: true, count: data.length, data });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Failed to list bots",
+    });
+  }
+};
+
+const getBot = async (req, res) => {
+  try {
+    const data = await botService.getBot(req.user._id, req.params.id);
+    res.json({ success: true, data });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Bot not found",
+    });
+  }
+};
+
+const createBot = async (req, res) => {
+  try {
+    const data = await botService.createBot({
+      userId: req.user._id,
+      type: req.body.type,
+      market: req.body.market,
+      pair: req.body.pair,
+      investment: req.body.investment ?? req.body.amount,
+      side: req.body.side,
+      grids: req.body.grids,
+      low: req.body.low,
+      high: req.body.high,
+      name: req.body.name,
+    });
+    res.status(201).json({
+      success: true,
+      message: `${data.bot.name} launched`,
+      data,
+    });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Failed to create bot",
+    });
+  }
+};
+
+const pauseBot = async (req, res) => {
+  try {
+    const data = await botService.pauseBot(req.user._id, req.params.id);
+    res.json({
+      success: true,
+      message: data.running ? "Bot resumed" : "Bot paused",
+      data,
+    });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Failed to pause bot",
+    });
+  }
+};
+
+const stopBot = async (req, res) => {
+  try {
+    const data = await botService.stopBot(req.user._id, req.params.id);
+    res.json({ success: true, message: "Bot stopped", data });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Failed to stop bot",
+    });
+  }
+};
+
+const resumeBot = async (req, res) => {
+  try {
+    const data = await botService.resumeBot(req.user._id, req.params.id);
+    res.json({ success: true, message: "Bot restarted", data });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Failed to resume bot",
+    });
+  }
+};
+
+// ─── Signals ────────────────────────────────────────────────
+
+const listSignals = async (req, res) => {
+  try {
+    const data = await signalService.listSignals();
+    res.json({ success: true, count: data.length, data });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Failed to list signals",
+    });
+  }
+};
+
+const executeSignal = async (req, res) => {
+  try {
+    const amount = req.body.amount ?? 100;
+    const data = await signalService.executeSignal({
+      userId: req.user._id,
+      signalId: req.params.id,
+      amount,
+    });
+    res.status(201).json({
+      success: true,
+      message: "Signal executed",
+      data,
+    });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Failed to execute signal",
+    });
+  }
+};
+
 module.exports = {
   listTraders,
   getTrader,
@@ -139,4 +269,12 @@ module.exports = {
   myPositions,
   closePosition,
   portfolio,
+  listBots,
+  getBot,
+  createBot,
+  pauseBot,
+  stopBot,
+  resumeBot,
+  listSignals,
+  executeSignal,
 };

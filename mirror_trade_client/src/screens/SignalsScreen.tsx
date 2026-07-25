@@ -1,43 +1,82 @@
-import React from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import Screen from "../components/Screen";
 import GradientButton from "../components/GradientButton";
+import { getApiErrorMessage } from "../config/api";
 import { useAppData } from "../context/AppDataContext";
+import { useAuth } from "../context/AuthContext";
 import { RootStackParamList } from "../navigation/types";
 import { colors } from "../theme/colors";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Signals">;
 
 export default function SignalsScreen({ navigation }: Props) {
-  const { signals, executeSignal, settings } = useAppData();
+  const { user } = useAuth();
+  const {
+    signals,
+    signalsLoading,
+    refreshSignals,
+    executeSignal,
+    settings,
+  } = useAppData();
+  const [executingId, setExecutingId] = useState<string | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshSignals();
+    }, [refreshSignals])
+  );
 
   const onExecute = (id: string, pair: string, direction: string) => {
-    const run = () => {
-      const pos = executeSignal(id);
-      if (pos) {
-        Alert.alert(
-          "Signal executed",
-          `${pair} ${direction.toUpperCase()} is now an open position.`,
-          [
-            {
-              text: "View portfolio",
-              onPress: () => navigation.navigate("MainTabs"),
-            },
-            { text: "OK" },
-          ]
-        );
+    if (!user) {
+      Alert.alert("Login required", "Sign in to execute signals on the server.", [
+        { text: "Cancel", style: "cancel" },
+        { text: "Login", onPress: () => navigation.navigate("Auth") },
+      ]);
+      return;
+    }
+
+    const run = async () => {
+      setExecutingId(id);
+      try {
+        const pos = await executeSignal(id, 100);
+        if (pos) {
+          Alert.alert(
+            "Signal executed · PAPER",
+            `${pair} ${direction.toUpperCase()} is now an open position (live marks).`,
+            [
+              {
+                text: "View portfolio",
+                onPress: () => navigation.navigate("MainTabs"),
+              },
+              { text: "OK" },
+            ]
+          );
+        }
+      } catch (err) {
+        Alert.alert("Execute failed", getApiErrorMessage(err));
+      } finally {
+        setExecutingId(null);
       }
     };
 
     if (settings.confirmOrders) {
-      Alert.alert("Execute signal", `Open ${pair} ${direction}?`, [
+      Alert.alert("Execute signal", `Open ${pair} ${direction} (paper $100)?`, [
         { text: "Cancel", style: "cancel" },
-        { text: "Execute", onPress: run },
+        { text: "Execute", onPress: () => void run() },
       ]);
     } else {
-      run();
+      void run();
     }
   };
 
@@ -54,17 +93,26 @@ export default function SignalsScreen({ navigation }: Props) {
       <View style={styles.demoBanner}>
         <Ionicons name="flask-outline" size={15} color="#FBBF24" />
         <Text style={styles.demoBannerText}>
-          Demo feed · executes local paper positions only (not live exchange)
+          API signal feed · execute opens paper positions in Portfolio
         </Text>
       </View>
 
       <Text style={styles.sub}>
-        Practice setups · tap Execute to open a demo position
+        Setups from the MirrorTrade API · Execute mirrors into your portfolio book
       </Text>
+
+      {signalsLoading && signals.length === 0 ? (
+        <ActivityIndicator color={colors.primary} style={{ marginTop: 32 }} />
+      ) : null}
+
+      {!signalsLoading && signals.length === 0 ? (
+        <Text style={styles.empty}>No active signals right now</Text>
+      ) : null}
 
       <View style={styles.list}>
         {signals.map((s) => {
           const long = s.direction === "long";
+          const busy = executingId === s.id;
           return (
             <View key={s.id} style={styles.card}>
               <View style={styles.top}>
@@ -103,8 +151,9 @@ export default function SignalsScreen({ navigation }: Props) {
 
               <View style={{ marginTop: 12 }}>
                 <GradientButton
-                  label="Execute"
+                  label={busy ? "Executing…" : "Execute"}
                   size="sm"
+                  disabled={busy}
                   onPress={() => onExecute(s.id, s.pair, s.direction)}
                 />
               </View>
@@ -172,6 +221,12 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   sub: { marginTop: 12, fontSize: 13, color: colors.muted },
+  empty: {
+    marginTop: 24,
+    textAlign: "center",
+    fontSize: 13,
+    color: colors.muted,
+  },
   list: { marginTop: 16, gap: 12 },
   card: {
     borderRadius: 16,

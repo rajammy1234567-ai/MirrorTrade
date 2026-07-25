@@ -1,19 +1,57 @@
-﻿import React, {
+import React, {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from "react";
 import {
-  bots as seedBots,
-  historyPositions as seedHistory,
-  positions as seedPositions,
-  signals as seedSignals,
-  type Bot,
-  type Position,
-  type Signal,
-} from "../data/mock";
+  createBotRequest,
+  executeSignalRequest,
+  getApiErrorMessage,
+  listBotsRequest,
+  listSignalsRequest,
+  pauseBotRequest,
+  resumeBotRequest,
+  stopBotRequest,
+  type ApiBot,
+  type ApiSignal,
+} from "../config/api";
+import { useAuth } from "./AuthContext";
+
+/** Client bot shape used by Bots UI (matches API) */
+export type Bot = {
+  id: string;
+  name: string;
+  type: "Grid" | "DCA";
+  pair: string;
+  market: "Spot" | "Futures";
+  running: boolean;
+  stopped?: boolean;
+  stopMode?: "Normally" | "Automatically";
+  stoppedAt?: string;
+  runtime: string;
+  pnl: number;
+  pnlPct: number;
+  investment: number;
+  position?: number;
+  unrealizedPnl?: number;
+  side?: "long" | "short";
+  lastActiveHours?: number;
+  mode?: string;
+};
+
+export type Signal = {
+  id: string;
+  provider: string;
+  pair: string;
+  direction: "long" | "short";
+  entry: number;
+  target: number;
+  stopLoss: number;
+  time: string;
+};
 
 export type NotificationItem = {
   id: string;
@@ -22,15 +60,6 @@ export type NotificationItem = {
   time: string;
   read: boolean;
   type: "trade" | "bot" | "system" | "signal";
-};
-
-export type CopiedTrader = {
-  traderId: string;
-  amount: number;
-  maxDd: number;
-  multiplier: number;
-  copyOpen: boolean;
-  startedAt: string;
 };
 
 export type AppSettings = {
@@ -46,23 +75,30 @@ export type AppSettings = {
 
 type AppDataValue = {
   bots: Bot[];
-  positions: Position[];
-  history: Position[];
   signals: Signal[];
   notifications: NotificationItem[];
-  copied: CopiedTrader[];
   settings: AppSettings;
   unreadCount: number;
-  pauseBot: (id: string) => void;
-  stopBot: (id: string) => void;
-  /** Restart a stopped bot back into Running (no create flow) */
-  resumeStoppedBot: (id: string) => void;
-  createBot: (
-    bot: Omit<Bot, "id" | "runtime" | "pnl" | "pnlPct" | "running" | "stopped">
-  ) => Bot;
-  closePosition: (id: string) => void;
-  executeSignal: (id: string) => Position | null;
-  startCopy: (copy: Omit<CopiedTrader, "startedAt">) => void;
+  botsLoading: boolean;
+  signalsLoading: boolean;
+  botsError: string;
+  refreshBots: () => Promise<void>;
+  refreshSignals: () => Promise<void>;
+  pauseBot: (id: string) => Promise<void>;
+  stopBot: (id: string) => Promise<void>;
+  resumeStoppedBot: (id: string) => Promise<void>;
+  createBot: (input: {
+    name?: string;
+    type: "Grid" | "DCA";
+    market: "Spot" | "Futures";
+    pair: string;
+    investment: number;
+    side?: "long" | "short";
+    grids?: number;
+    low?: number;
+    high?: number;
+  }) => Promise<Bot>;
+  executeSignal: (id: string, amount?: number) => Promise<{ pair: string; direction: string } | null>;
   markAllRead: () => void;
   markRead: (id: string) => void;
   updateSettings: (patch: Partial<AppSettings>) => void;
@@ -80,72 +116,56 @@ const defaultSettings: AppSettings = {
   twoFAEnabled: true,
 };
 
-const seedNotifications: NotificationItem[] = [
-  {
-    id: "n1",
-    title: "BTC Grid Bot filled",
-    body: "Buy order filled at $43,820 · +0.4%",
-    time: "4m ago",
-    read: false,
-    type: "bot",
-  },
-  {
-    id: "n2",
-    title: "New signal · Nova Desk",
-    body: "BTC/USDT long setup published",
-    time: "18m ago",
-    read: false,
-    type: "signal",
-  },
-  {
-    id: "n3",
-    title: "Copy trade opened",
-    body: "Alex Mercer opened ETH/USDT long — mirrored",
-    time: "1h ago",
-    read: false,
-    type: "trade",
-  },
-  {
-    id: "n4",
-    title: "Weekly performance",
-    body: "Portfolio +2.86% this week. Keep risk tight.",
-    time: "Yesterday",
-    read: true,
-    type: "system",
-  },
-  {
-    id: "n5",
-    title: "Drawdown watch",
-    body: "SOL short is -4.4%. Max stop not hit yet.",
-    time: "Yesterday",
-    read: true,
-    type: "trade",
-  },
-];
-
 const AppDataContext = createContext<AppDataValue | undefined>(undefined);
 
 function uid(prefix: string) {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 }
 
+function mapApiBot(b: ApiBot): Bot {
+  return {
+    id: b.id,
+    name: b.name,
+    type: b.type,
+    pair: b.pair,
+    market: b.market,
+    running: b.running,
+    stopped: b.stopped,
+    stopMode: b.stopMode,
+    stoppedAt: b.stoppedAt,
+    runtime: b.runtime,
+    pnl: b.pnl,
+    pnlPct: b.pnlPct,
+    investment: b.investment,
+    position: b.position,
+    unrealizedPnl: b.unrealizedPnl,
+    side: b.side,
+    lastActiveHours: b.lastActiveHours,
+    mode: b.mode,
+  };
+}
+
+function mapApiSignal(s: ApiSignal): Signal {
+  return {
+    id: s.id,
+    provider: s.provider,
+    pair: s.pair,
+    direction: s.direction,
+    entry: s.entry,
+    target: s.target,
+    stopLoss: s.stopLoss,
+    time: s.time,
+  };
+}
+
 export function AppDataProvider({ children }: { children: React.ReactNode }) {
-  const [bots, setBots] = useState<Bot[]>(seedBots);
-  const [positions, setPositions] = useState<Position[]>(seedPositions);
-  const [history, setHistory] = useState<Position[]>(seedHistory);
-  const [signals] = useState<Signal[]>(seedSignals);
-  const [notifications, setNotifications] =
-    useState<NotificationItem[]>(seedNotifications);
-  const [copied, setCopied] = useState<CopiedTrader[]>([
-    {
-      traderId: "1",
-      amount: 500,
-      maxDd: 20,
-      multiplier: 1,
-      copyOpen: false,
-      startedAt: "3d ago",
-    },
-  ]);
+  const { user } = useAuth();
+  const [bots, setBots] = useState<Bot[]>([]);
+  const [signals, setSignals] = useState<Signal[]>([]);
+  const [botsLoading, setBotsLoading] = useState(false);
+  const [signalsLoading, setSignalsLoading] = useState(false);
+  const [botsError, setBotsError] = useState("");
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
 
   const unreadCount = useMemo(
@@ -163,123 +183,132 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const refreshBots = useCallback(async () => {
+    if (!user) {
+      setBots([]);
+      setBotsError("");
+      return;
+    }
+    setBotsLoading(true);
+    setBotsError("");
+    try {
+      const res = await listBotsRequest();
+      if (res.success) setBots((res.data || []).map(mapApiBot));
+    } catch (err) {
+      setBotsError(getApiErrorMessage(err, "Failed to load bots"));
+      setBots([]);
+    } finally {
+      setBotsLoading(false);
+    }
+  }, [user]);
+
+  const refreshSignals = useCallback(async () => {
+    setSignalsLoading(true);
+    try {
+      const res = await listSignalsRequest();
+      if (res.success) setSignals((res.data || []).map(mapApiSignal));
+    } catch {
+      setSignals([]);
+    } finally {
+      setSignalsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshSignals();
+  }, [refreshSignals]);
+
+  useEffect(() => {
+    void refreshBots();
+  }, [refreshBots]);
+
   const pauseBot = useCallback(
-    (id: string) => {
-      const bot = bots.find((b) => b.id === id);
-      if (bot?.stopped) return;
-      setBots((prev) =>
-        prev.map((b) =>
-          b.id === id
-            ? {
-                ...b,
-                running: !b.running,
-                runtime: b.running
-                  ? "Paused"
-                  : b.runtime === "Paused"
-                    ? "0h"
-                    : b.runtime,
-              }
-            : b
-        )
-      );
-      if (bot) {
+    async (id: string) => {
+      const res = await pauseBotRequest(id);
+      if (res.success && res.data) {
+        const mapped = mapApiBot(res.data);
+        setBots((prev) => prev.map((b) => (b.id === id ? mapped : b)));
         addNotification({
-          title: bot.running ? `${bot.name} paused` : `${bot.name} resumed`,
-          body: bot.running
-            ? "Bot stopped placing new orders."
-            : "Bot is live again.",
+          title: mapped.running ? `${mapped.name} resumed` : `${mapped.name} paused`,
+          body: mapped.running
+            ? "Bot is live again (paper marks)."
+            : "Bot stopped placing new paper fills.",
           time: "Just now",
           type: "bot",
         });
       }
     },
-    [bots, addNotification]
+    [addNotification]
   );
 
   const stopBot = useCallback(
-    (id: string) => {
-      const bot = bots.find((b) => b.id === id);
-      const now = new Date();
-      const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-      setBots((prev) =>
-        prev.map((b) =>
-          b.id === id
-            ? {
-                ...b,
-                running: false,
-                stopped: true,
-                stopMode: "Normally" as const,
-                stoppedAt: stamp,
-                position: 0,
-                unrealizedPnl: 0,
-                lastActiveHours: 0,
-              }
-            : b
-        )
-      );
-      if (bot) {
+    async (id: string) => {
+      const res = await stopBotRequest(id);
+      if (res.success && res.data) {
+        const mapped = mapApiBot(res.data);
+        setBots((prev) => prev.map((b) => (b.id === id ? mapped : b)));
         addNotification({
-          title: `${bot.name} stopped`,
-          body: `Final PnL ${bot.pnl >= 0 ? "+" : ""}$${bot.pnl.toFixed(2)}`,
+          title: `${mapped.name} stopped`,
+          body: `Final PnL ${mapped.pnl >= 0 ? "+" : ""}$${mapped.pnl.toFixed(2)}`,
           time: "Just now",
           type: "bot",
         });
       }
     },
-    [bots, addNotification]
+    [addNotification]
   );
 
   const resumeStoppedBot = useCallback(
-    (id: string) => {
-      const bot = bots.find((b) => b.id === id);
-      if (!bot?.stopped) return;
-      setBots((prev) =>
-        prev.map((b) =>
-          b.id === id
-            ? {
-                ...b,
-                stopped: false,
-                running: true,
-                stopMode: undefined,
-                stoppedAt: undefined,
-                runtime: "0h",
-                lastActiveHours: 0,
-              }
-            : b
-        )
-      );
-      if (bot) {
+    async (id: string) => {
+      const res = await resumeBotRequest(id);
+      if (res.success && res.data) {
+        const mapped = mapApiBot(res.data);
+        setBots((prev) => {
+          const rest = prev.filter((b) => b.id !== id);
+          return [mapped, ...rest];
+        });
         addNotification({
-          title: `${bot.name} restarted`,
-          body: `${bot.type} · ${bot.market} · ${bot.pair} is live again.`,
+          title: `${mapped.name} restarted`,
+          body: `${mapped.type} · ${mapped.market} · ${mapped.pair} is live again.`,
           time: "Just now",
           type: "bot",
         });
       }
     },
-    [bots, addNotification]
+    [addNotification]
   );
 
-  /** Kept for future algo wiring — not exposed in Bot UI for now */
   const createBot = useCallback(
-    (input: Omit<Bot, "id" | "runtime" | "pnl" | "pnlPct" | "running" | "stopped">) => {
-      const bot: Bot = {
-        ...input,
-        market: input.market ?? "Spot",
-        id: uid("b"),
-        running: true,
-        stopped: false,
-        runtime: "0h",
-        pnl: 0,
-        pnlPct: 0,
-        position: 0,
-        unrealizedPnl: 0,
-        lastActiveHours: 0,
-      };
+    async (input: {
+      name?: string;
+      type: "Grid" | "DCA";
+      market: "Spot" | "Futures";
+      pair: string;
+      investment: number;
+      side?: "long" | "short";
+      grids?: number;
+      low?: number;
+      high?: number;
+    }) => {
+      const res = await createBotRequest({
+        type: input.type,
+        market: input.market,
+        pair: input.pair,
+        investment: input.investment,
+        side: input.side,
+        grids: input.grids,
+        low: input.low,
+        high: input.high,
+        name: input.name,
+      });
+      if (!res.success || !res.data?.bot) {
+        throw new Error(res.message || "Failed to create bot");
+      }
+      const bot = mapApiBot(res.data.bot);
       setBots((prev) => [bot, ...prev]);
       addNotification({
         title: `${bot.name} launched`,
-        body: `${bot.type} · ${bot.market} · ${bot.pair} · $${bot.investment.toLocaleString("en-US")}`,
+        body: `${bot.type} · ${bot.market} · ${bot.pair} · $${bot.investment.toLocaleString("en-US")} · paper`,
         time: "Just now",
         type: "bot",
       });
@@ -288,71 +317,23 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     [addNotification]
   );
 
-  const closePosition = useCallback(
-    (id: string) => {
-      setPositions((prev) => {
-        const pos = prev.find((p) => p.id === id);
-        if (!pos) return prev;
-        const closed: Position = {
-          ...pos,
-          status: "closed",
-          closedDate: "Today",
-        };
-        setHistory((h) => [closed, ...h]);
-        addNotification({
-          title: `Closed ${pos.pair}`,
-          body: `PnL ${pos.pnl >= 0 ? "+" : ""}$${pos.pnl.toFixed(2)} (${pos.pnlPct}%)`,
-          time: "Just now",
-          type: "trade",
-        });
-        return prev.filter((p) => p.id !== id);
-      });
-    },
-    [addNotification]
-  );
-
   const executeSignal = useCallback(
-    (id: string) => {
+    async (id: string, amount = 100) => {
       const sig = signals.find((s) => s.id === id);
-      if (!sig) return null;
-      const pos: Position = {
-        id: uid("p"),
-        source: sig.provider,
-        sourceType: "signal",
-        pair: sig.pair,
-        side: sig.direction,
-        entry: sig.entry,
-        current: sig.entry,
-        pnl: 0,
-        pnlPct: 0,
-        status: "active",
-      };
-      setPositions((prev) => [pos, ...prev]);
+      const res = await executeSignalRequest(id, amount);
+      if (!res.success) return null;
       addNotification({
-        title: `Signal executed · ${sig.pair}`,
-        body: `${sig.direction.toUpperCase()} @ ${sig.entry} · ${sig.provider}`,
+        title: `Signal executed · ${sig?.pair || res.data.position.pair}`,
+        body: `${(sig?.direction || res.data.position.side).toUpperCase()} · ${sig?.provider || res.data.position.source} · paper`,
         time: "Just now",
         type: "signal",
       });
-      return pos;
+      return {
+        pair: res.data.position.pair,
+        direction: res.data.position.side,
+      };
     },
     [signals, addNotification]
-  );
-
-  const startCopy = useCallback(
-    (copy: Omit<CopiedTrader, "startedAt">) => {
-      setCopied((prev) => {
-        const rest = prev.filter((c) => c.traderId !== copy.traderId);
-        return [{ ...copy, startedAt: "Just now" }, ...rest];
-      });
-      addNotification({
-        title: "Copy trading started",
-        body: `Allocating $${copy.amount.toLocaleString("en-US")} · ${copy.multiplier}x size`,
-        time: "Just now",
-        type: "trade",
-      });
-    },
-    [addNotification]
   );
 
   const markAllRead = useCallback(() => {
@@ -372,20 +353,20 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo(
     () => ({
       bots,
-      positions,
-      history,
       signals,
       notifications,
-      copied,
       settings,
       unreadCount,
+      botsLoading,
+      signalsLoading,
+      botsError,
+      refreshBots,
+      refreshSignals,
       pauseBot,
       stopBot,
       resumeStoppedBot,
       createBot,
-      closePosition,
       executeSignal,
-      startCopy,
       markAllRead,
       markRead,
       updateSettings,
@@ -393,20 +374,20 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       bots,
-      positions,
-      history,
       signals,
       notifications,
-      copied,
       settings,
       unreadCount,
+      botsLoading,
+      signalsLoading,
+      botsError,
+      refreshBots,
+      refreshSignals,
       pauseBot,
       stopBot,
       resumeStoppedBot,
       createBot,
-      closePosition,
       executeSignal,
-      startCopy,
       markAllRead,
       markRead,
       updateSettings,

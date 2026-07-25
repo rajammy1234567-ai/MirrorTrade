@@ -19,6 +19,7 @@ import {
   connectExchangeRequest,
   disconnectExchangeRequest,
   getApiErrorMessage,
+  listExchangeCatalogRequest,
   listExchangesRequest,
   syncExchangeCapitalRequest,
   withTimeout,
@@ -48,21 +49,46 @@ export default function ExchangeConnectScreen({ navigation }: Props) {
   const [loadingList, setLoadingList] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  /** Server-supported exchange ids (merged onto UI catalog) */
+  const [serverIds, setServerIds] = useState<Set<string> | null>(null);
+  const [serverPass, setServerPass] = useState<Record<string, boolean>>({});
 
   const catalogById = useMemo(() => {
     const map = new Map<string, ExchangeCatalogItem>();
-    exchanges.forEach((e) => map.set(e.id, e));
+    exchanges.forEach((e) => {
+      const needsPassphrase =
+        serverPass[e.id] != null ? serverPass[e.id] : e.needsPassphrase;
+      map.set(e.id, { ...e, needsPassphrase });
+    });
     return map;
-  }, []);
+  }, [serverPass]);
+
+  /** Prefer API-supported exchanges; fall back to full local catalog */
+  const displayCatalog = useMemo(() => {
+    if (!serverIds || serverIds.size === 0) return exchanges;
+    const filtered = exchanges.filter((e) => serverIds.has(e.id));
+    return filtered.length > 0 ? filtered : exchanges;
+  }, [serverIds]);
 
   const loadConnections = useCallback(async () => {
     try {
-      const res = await withTimeout(listExchangesRequest());
+      const [res, cat] = await Promise.all([
+        withTimeout(listExchangesRequest()),
+        listExchangeCatalogRequest().catch(() => null),
+      ]);
       if (res.success) {
         setConnected(res.data || []);
         if ((res.data || []).length > 0) {
           await setExchangeConnected(true);
         }
+      }
+      if (cat?.success && cat.data?.length) {
+        setServerIds(new Set(cat.data.map((c) => c.id)));
+        const pass: Record<string, boolean> = {};
+        cat.data.forEach((c) => {
+          pass[c.id] = !!c.needsPassphrase;
+        });
+        setServerPass(pass);
       }
     } catch {
       setConnected([]);
@@ -221,11 +247,11 @@ export default function ExchangeConnectScreen({ navigation }: Props) {
   };
 
   const filteredCatalog = useMemo(() => {
-    return exchanges.filter((e) => {
+    return displayCatalog.filter((e) => {
       if (activeTab === "USDT") return e.quote === "USDT" || e.quote === "BOTH" || !e.quote;
       return e.quote === "USDC" || e.quote === "BOTH";
     });
-  }, [activeTab]);
+  }, [activeTab, displayCatalog]);
 
   const connectedIds = new Set(connected.map((c) => c.exchange));
   const available = filteredCatalog.filter((e) => !connectedIds.has(e.id));

@@ -4,13 +4,16 @@ import { Ionicons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import Screen from "../components/Screen";
 import GradientButton from "../components/GradientButton";
+import { getApiErrorMessage } from "../config/api";
 import { useAppData } from "../context/AppDataContext";
+import { useAuth } from "../context/AuthContext";
 import { RootStackParamList } from "../navigation/types";
 import { colors } from "../theme/colors";
 
 type Props = NativeStackScreenProps<RootStackParamList, "CreateBot">;
 
 export default function CreateBotScreen({ navigation, route }: Props) {
+  const { user } = useAuth();
   const { createBot } = useAppData();
   const [type, setType] = useState<"Grid" | "DCA">(
     route.params?.type || "Grid"
@@ -21,33 +24,61 @@ export default function CreateBotScreen({ navigation, route }: Props) {
   const [grids, setGrids] = useState("20");
   const [low, setLow] = useState("60000");
   const [high, setHigh] = useState("72000");
+  const [loading, setLoading] = useState(false);
 
-  const launch = () => {
+  const launch = async () => {
+    if (!user) {
+      Alert.alert("Login required", "Sign in to launch a bot on the server.", [
+        { text: "Cancel", style: "cancel" },
+        { text: "Login", onPress: () => navigation.navigate("Auth") },
+      ]);
+      return;
+    }
     const inv = Number(amount) || 0;
     if (inv < 50) {
       Alert.alert("Invalid amount", "Minimum investment is $50 USD");
       return;
     }
-    const bot = createBot({
-      name: `${pair.split("/")[0]} ${type} Bot`,
-      type,
-      market,
-      pair: pair.toUpperCase(),
-      investment: inv,
-    });
-    Alert.alert("Bot launched", `${bot.name} is live with $${inv}.`, [
-      {
-        text: "View bot",
-        onPress: () =>
-          navigation.replace("BotDetail", { botId: bot.id }),
-      },
-      { text: "Done", onPress: () => navigation.goBack() },
-    ]);
+    setLoading(true);
+    try {
+      const bot = await createBot({
+        name: `${pair.split("/")[0]} ${type} Bot`,
+        type,
+        market,
+        pair: pair.toUpperCase(),
+        investment: inv,
+        grids: type === "Grid" ? Number(grids) || undefined : undefined,
+        low: type === "Grid" ? Number(low) || undefined : undefined,
+        high: type === "Grid" ? Number(high) || undefined : undefined,
+      });
+      Alert.alert(
+        "Bot launched · PAPER",
+        `${bot.name} is live with $${inv}. Tracks live Binance marks — no real exchange orders.`,
+        [
+          {
+            text: "View bot",
+            onPress: () =>
+              navigation.replace("BotDetail", { botId: bot.id }),
+          },
+          { text: "Done", onPress: () => navigation.goBack() },
+        ]
+      );
+    } catch (err) {
+      Alert.alert("Launch failed", getApiErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <Screen
-      footer={<GradientButton label="Launch Bot" onPress={launch} />}
+      footer={
+        <GradientButton
+          label={loading ? "Launching…" : "Launch Bot"}
+          onPress={() => void launch()}
+          disabled={loading}
+        />
+      }
     >
       <View style={styles.nav}>
         <Pressable onPress={() => navigation.goBack()} style={styles.back}>
