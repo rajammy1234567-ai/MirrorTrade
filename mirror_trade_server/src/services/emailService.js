@@ -4,19 +4,30 @@ const nodemailer = require("nodemailer");
  * Creates an SMTP Transporter if environment variables are provided.
  */
 function createTransporter() {
-  const host = process.env.SMTP_HOST;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
+  const host = (process.env.SMTP_HOST || "").trim();
+  const user = (process.env.SMTP_USER || "").trim();
+  const pass = (process.env.SMTP_PASS || "").trim().replace(/\s+/g, "");
   const port = Number(process.env.SMTP_PORT) || 587;
 
   if (!host || !user || !pass) {
     return null;
   }
 
+  // Gmail special optimization (App Passwords have spaces removed)
+  if (host.includes("gmail")) {
+    return nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user,
+        pass,
+      },
+    });
+  }
+
   return nodemailer.createTransport({
     host,
     port,
-    secure: port === 465, // true for 465, false for other ports
+    secure: port === 465,
     auth: {
       user,
       pass,
