@@ -967,3 +967,37 @@ export async function listExchangeCatalogRequest() {
     throw err;
   }
 }
+
+export type CandleData = {
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume?: number;
+  time?: number;
+};
+
+export async function fetchBinanceKlines(
+  symbol = "BTCUSDT",
+  interval = "1h",
+  limit = 30
+): Promise<CandleData[]> {
+  try {
+    const res = await fetch(
+      `https://api.binance.com/api/v3/klines?symbol=${symbol.toUpperCase()}&interval=${interval}&limit=${limit}`
+    );
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      return data.map((item: any) => ({
+        time: item[0],
+        open: parseFloat(item[1]),
+        high: parseFloat(item[2]),
+        low: parseFloat(item[3]),
+        close: parseFloat(item[4]),
+      }));
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}

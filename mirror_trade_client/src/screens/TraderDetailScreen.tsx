@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -15,9 +15,11 @@ import CandleChart from "../components/CandleChart";
 import PnlText from "../components/PnlText";
 import GradientButton from "../components/GradientButton";
 import {
+  fetchBinanceKlines,
   getApiErrorMessage,
   getTraderRequest,
   type ApiTrader,
+  type CandleData,
 } from "../config/api";
 import { RootStackParamList } from "../navigation/types";
 import { colors } from "../theme/colors";
@@ -27,28 +29,49 @@ const timeframes = ["7D", "30D", "90D", "All"] as const;
 
 export default function TraderDetailScreen({ route, navigation }: Props) {
   const [trader, setTrader] = useState<ApiTrader | null>(null);
+  const [candles, setCandles] = useState<CandleData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [tf, setTf] = useState<(typeof timeframes)[number]>("30D");
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const loadTrader = useCallback(async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
     setError("");
     try {
       const res = await getTraderRequest(route.params.traderId);
       if (res.success && res.data) setTrader(res.data);
       else setError("Trader not found");
     } catch (err) {
-      setError(getApiErrorMessage(err, "Failed to load trader"));
+      if (!isSilent) setError(getApiErrorMessage(err, "Failed to load trader"));
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   }, [route.params.traderId]);
 
+  const loadKlines = useCallback(async () => {
+    try {
+      const klines = await fetchBinanceKlines("BTCUSDT", "1h", 32);
+      if (klines && klines.length > 0) {
+        setCandles(klines);
+      }
+    } catch {
+      // Keep existing candles if fetch fails
+    }
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
-      load();
-    }, [load])
+      loadTrader(false);
+      loadKlines();
+
+      // Live 5-second auto-refresh polling for real-time mark prices & Klines
+      const interval = setInterval(() => {
+        loadTrader(true);
+        loadKlines();
+      }, 5000);
+
+      return () => clearInterval(interval);
+    }, [loadTrader, loadKlines])
   );
 
   if (loading && !trader) {
@@ -116,7 +139,7 @@ export default function TraderDetailScreen({ route, navigation }: Props) {
             {trader.verified ? (
               <View style={styles.verified}>
                 <Ionicons name="checkmark" size={11} color={colors.profit} />
-                <Text style={styles.verifiedText}>Verified</Text>
+                <Text style={styles.verifiedText}>Verified Trader</Text>
               </View>
             ) : null}
             <View style={[styles.risk, { backgroundColor: `${rc}18` }]}>
@@ -166,31 +189,41 @@ export default function TraderDetailScreen({ route, navigation }: Props) {
         ))}
       </View>
 
+      {/* Equity Performance Curve */}
       <View style={styles.chartWrap}>
         <TradingChart data={trader.equity} />
       </View>
+
+      {/* Real Binance Candlestick Klines Chart */}
       <View style={styles.chartWrap}>
         <CandleChart
-          seed={trader.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0)}
+          candles={candles}
+          pairLabel="BTC/USDT"
+          height={140}
         />
       </View>
 
-      {/* Open legs (live mark) */}
+      {/* Open Book Leg Positions (Live Binance Marks) */}
       {trader.openLegs && trader.openLegs.length > 0 ? (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Open book (live)</Text>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Open Book (Live Mark)</Text>
+            <View style={styles.liveTag}>
+              <View style={styles.liveDot} />
+              <Text style={styles.liveTagText}>Binance Sync</Text>
+            </View>
+          </View>
           {trader.openLegs.map((leg, i) => (
             <View key={`${leg.pair}-${i}`} style={styles.tradeRow}>
               <View>
                 <Text style={styles.tradePair}>{leg.pair}</Text>
                 <Text style={styles.tradeMeta}>
-                  {leg.side.toUpperCase()} · entry{" "}
-                  {leg.entry?.toLocaleString?.() ?? leg.entry}
+                  {leg.side.toUpperCase()} · Entry ${leg.entry?.toLocaleString?.() ?? leg.entry}
                 </Text>
               </View>
               <View style={{ alignItems: "flex-end" }}>
                 <Text style={styles.tradeMeta}>
-                  now {leg.current?.toLocaleString?.() ?? "—"}
+                  Mark ${leg.current?.toLocaleString?.() ?? "—"}
                 </Text>
                 <PnlText value={leg.pnlPct || 0} suffix="%" size="sm" />
               </View>
@@ -199,15 +232,16 @@ export default function TraderDetailScreen({ route, navigation }: Props) {
         </View>
       ) : null}
 
+      {/* Recent Trade History */}
       {recent.length > 0 ? (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recent activity</Text>
+          <Text style={styles.sectionTitle}>Recent Executions</Text>
           {recent.map((tr, i) => (
             <View key={`${tr.pair}-${i}`} style={styles.tradeRow}>
               <View>
                 <Text style={styles.tradePair}>{tr.pair}</Text>
                 <Text style={styles.tradeMeta}>
-                  {tr.side} · {tr.time}
+                  {tr.side.toUpperCase()} · Entry ${tr.entry?.toLocaleString?.() ?? tr.entry} → Exit ${tr.exit?.toLocaleString?.() ?? tr.exit}
                 </Text>
               </View>
               <PnlText value={tr.pnl} prefix="$" size="sm" />
@@ -273,62 +307,93 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   stat: {
-    width: "47%",
-    borderRadius: 12,
+    flex: 1,
+    minWidth: "45%",
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.card,
-    padding: 12,
+    padding: 14,
   },
-  statLabel: { fontSize: 11, color: colors.muted, fontWeight: "600" },
-  statVal: { marginTop: 4, fontSize: 18, fontWeight: "800" },
+  statLabel: { fontSize: 12, color: colors.muted, fontWeight: "500" },
+  statVal: { marginTop: 6, fontSize: 18, fontWeight: "800" },
   bio: {
     marginTop: 14,
-    fontSize: 13,
+    fontSize: 13.5,
     lineHeight: 20,
     color: colors.muted,
   },
   tfRow: {
-    marginTop: 16,
+    marginTop: 18,
+    marginBottom: 10,
     flexDirection: "row",
     gap: 8,
   },
   tf: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: colors.card,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.border,
+    backgroundColor: colors.card,
   },
   tfActive: {
     backgroundColor: colors.primarySoft,
-    borderColor: "rgba(91,108,255,0.4)",
+    borderColor: "rgba(255,209,67,0.35)",
   },
   tfText: { fontSize: 12, fontWeight: "600", color: colors.muted },
-  tfTextActive: { color: colors.primary },
-  chartWrap: { marginTop: 12 },
-  section: { marginTop: 18 },
+  tfTextActive: { color: colors.primary, fontWeight: "700" },
+  chartWrap: {
+    marginTop: 10,
+  },
+  section: {
+    marginTop: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    padding: 16,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
   sectionTitle: {
     fontSize: 14,
     fontWeight: "700",
     color: colors.text,
-    marginBottom: 10,
+  },
+  liveTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(0,208,132,0.12)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.profit,
+  },
+  liveTagText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: colors.profit,
   },
   tradeRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
     paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
   },
   tradePair: { fontSize: 14, fontWeight: "700", color: colors.text },
-  tradeMeta: { fontSize: 12, color: colors.muted, marginTop: 2 },
-  error: {
-    marginTop: 40,
-    textAlign: "center",
-    color: colors.loss,
-    marginBottom: 16,
-  },
+  tradeMeta: { marginTop: 2, fontSize: 12, color: colors.muted },
+  error: { color: colors.loss, fontSize: 14, marginBottom: 16 },
 });
