@@ -1,5 +1,6 @@
 const User = require("../models/User");
 const generateToken = require("../utils/generateToken");
+const { sendOtpEmail } = require("../services/emailService");
 const {
   createUniqueReferralCode,
   validateReferralForSignup,
@@ -305,9 +306,17 @@ const forgotPassword = async (req, res) => {
     user.resetPasswordExpire = new Date(Date.now() + 15 * 60 * 1000);
     await user.save();
 
+    // Send real SMTP OTP Email
+    await sendOtpEmail(
+      emailNorm,
+      resetCode,
+      "Password Reset OTP - MirrorTrade",
+      "Reset Your Password"
+    ).catch((err) => console.error("[Auth] Email send warning:", err.message));
+
     res.json({
       success: true,
-      message: `Password reset code sent to ${emailNorm}.`,
+      message: `Password reset code sent to ${emailNorm}. Check your email inbox!`,
       resetCode,
     });
   } catch (error) {
