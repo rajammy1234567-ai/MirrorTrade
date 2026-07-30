@@ -2,7 +2,7 @@
   "expo": {
     "name": "MirrorTrade",
     "slug": "mirror_trade_client",
-    "owner": "vizi_kids_eas_001",
+    "owner": "viz_eas001",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -35,7 +35,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "15dbfb74-9a87-4aee-a9c7-84de24a74655"
+        "projectId": "6eccd4cf-21cc-4900-8f75-d99f9a809909"
       }
     }
   }
