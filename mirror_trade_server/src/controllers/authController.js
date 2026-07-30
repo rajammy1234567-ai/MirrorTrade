@@ -292,21 +292,17 @@ const forgotPassword = async (req, res) => {
       return res.status(400).json({ success: false, message: "Email is required" });
     }
     const emailNorm = String(email).trim().toLowerCase();
-    const user = await User.findOne({ email: emailNorm });
-    if (!user) {
-      return res.json({
-        success: true,
-        message: "If an account exists with this email, a reset code was sent.",
-        resetCode: "123456",
-      });
-    }
+    let user = await User.findOne({ email: emailNorm });
 
     const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
-    user.resetPasswordCode = resetCode;
-    user.resetPasswordExpire = new Date(Date.now() + 15 * 60 * 1000);
-    await user.save();
 
-    // Send real SMTP OTP Email
+    if (user) {
+      user.resetPasswordCode = resetCode;
+      user.resetPasswordExpire = new Date(Date.now() + 15 * 60 * 1000);
+      await user.save();
+    }
+
+    // ALWAYS send real SMTP OTP Email to whatever email address was entered
     await sendOtpEmail(
       emailNorm,
       resetCode,
