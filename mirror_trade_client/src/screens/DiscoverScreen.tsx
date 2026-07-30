@@ -215,7 +215,8 @@ export default function DiscoverScreen() {
                   <Text style={styles.win}>Win {t.winRate}%</Text>
                   <GradientButton
                     size="sm"
-                    label="Copy"
+                    label="Copy Trader"
+                    style={{ minWidth: 100 }}
                     onPress={() =>
                       navigation.navigate("CopySetup", { traderId: t.id })
                     }

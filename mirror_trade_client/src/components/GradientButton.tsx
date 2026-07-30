@@ -30,9 +30,10 @@ export default function GradientButton({
   size = "md",
   variant = "primary",
 }: Props) {
-  const padV = size === "sm" ? 11 : 15;
+  const padV = size === "sm" ? 8 : 15;
+  const padH = size === "sm" ? 16 : 20;
   const fontSize = size === "sm" ? 13 : 15;
-  const radius = size === "sm" ? 12 : 14;
+  const radius = size === "sm" ? 10 : 14;
 
   if (variant === "ghost") {
     return (
@@ -41,7 +42,12 @@ export default function GradientButton({
         disabled={disabled || loading}
         style={[
           styles.ghost,
-          { paddingVertical: padV, borderRadius: radius, opacity: disabled ? 0.6 : 1 },
+          {
+            paddingVertical: padV,
+            paddingHorizontal: padH,
+            borderRadius: radius,
+            opacity: disabled ? 0.6 : 1,
+          },
           style,
         ]}
       >
@@ -57,7 +63,12 @@ export default function GradientButton({
         disabled={disabled || loading}
         style={[
           styles.danger,
-          { paddingVertical: padV, borderRadius: radius, opacity: disabled ? 0.6 : 1 },
+          {
+            paddingVertical: padV,
+            paddingHorizontal: padH,
+            borderRadius: radius,
+            opacity: disabled ? 0.6 : 1,
+          },
           style,
         ]}
       >
@@ -75,6 +86,7 @@ export default function GradientButton({
           styles.green,
           {
             paddingVertical: padV,
+            paddingHorizontal: padH,
             borderRadius: radius,
             opacity: disabled || loading ? 0.65 : 1,
           },
@@ -89,8 +101,6 @@ export default function GradientButton({
       </Pressable>
     );
   }
-
-  const r = size === "sm" ? 12 : 16;
 
   // Primary CTA — Home-style gold (matches Share Invite)
   return (
@@ -107,7 +117,8 @@ export default function GradientButton({
           styles.grad,
           {
             paddingVertical: padV,
-            borderRadius: r,
+            paddingHorizontal: padH,
+            borderRadius: radius,
           },
         ]}
       >

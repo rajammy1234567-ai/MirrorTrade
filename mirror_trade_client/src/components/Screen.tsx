@@ -63,7 +63,9 @@ export default function Screen({
     ? 90 + Math.max(insets.bottom, 12)
     : footer
       ? 80 + Math.max(insets.bottom, 12)
-      : 40 + Math.max(insets.bottom, 12);
+      : keyboard
+        ? 160 + Math.max(insets.bottom, 12)
+        : 40 + Math.max(insets.bottom, 12);
 
   const body = (
     <View
@@ -96,8 +98,8 @@ export default function Screen({
   const wrapped = keyboard ? (
     <KeyboardAvoidingView
       style={styles.flex}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 20 : 0}
     >
       {main}
     </KeyboardAvoidingView>

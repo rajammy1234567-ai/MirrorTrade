@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   Platform,
   Pressable,
@@ -41,11 +41,23 @@ export default function AuthInput({
   autoComplete,
 }: Props) {
   const [focused, setFocused] = useState(false);
+  const inputRef = useRef<TextInput>(null);
+
+  const focusInput = () => {
+    inputRef.current?.focus();
+  };
 
   return (
     <View style={styles.field}>
-      {label ? <Text style={styles.label}>{label}</Text> : null}
-      <View style={[styles.wrap, focused && styles.wrapFocused]}>
+      {label ? (
+        <Text style={styles.label} onPress={focusInput}>
+          {label}
+        </Text>
+      ) : null}
+      <Pressable
+        onPress={focusInput}
+        style={[styles.wrap, focused && styles.wrapFocused]}
+      >
         <View style={[styles.iconWrap, focused && styles.iconWrapFocused]}>
           <Ionicons
             name={icon}
@@ -54,6 +66,7 @@ export default function AuthInput({
           />
         </View>
         <TextInput
+          ref={inputRef}
           style={styles.input}
           placeholder={placeholder}
           placeholderTextColor="#4A5163"
@@ -64,13 +77,18 @@ export default function AuthInput({
           autoCapitalize={autoCapitalize}
           autoComplete={autoComplete}
           autoCorrect={false}
+          editable={true}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           selectionColor={colors.primary}
+          cursorColor={colors.primary}
         />
         {showPasswordToggle ? (
           <Pressable
-            onPress={onTogglePassword}
+            onPress={(e) => {
+              e.stopPropagation();
+              if (onTogglePassword) onTogglePassword();
+            }}
             hitSlop={12}
             style={styles.eye}
           >
@@ -81,7 +99,7 @@ export default function AuthInput({
             />
           </Pressable>
         ) : null}
-      </View>
+      </Pressable>
     </View>
   );
 }
@@ -89,6 +107,7 @@ export default function AuthInput({
 const styles = StyleSheet.create({
   field: {
     marginBottom: 14,
+    zIndex: 1,
   },
   label: {
     marginBottom: 8,
@@ -135,6 +154,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: "500",
     letterSpacing: 0.1,
+    ...(Platform.OS === "web" ? ({ outlineStyle: "none" } as any) : {}),
   },
   eye: {
     paddingLeft: 6,
