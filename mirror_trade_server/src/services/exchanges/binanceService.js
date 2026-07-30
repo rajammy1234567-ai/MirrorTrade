@@ -17,32 +17,34 @@ function sign(queryString, apiSecret) {
  * Docs: GET /sapi/v1/account/apiRestrictions
  */
 async function checkApiRestrictions(apiKey, apiSecret) {
-  const timestamp = Date.now();
-  const query = `timestamp=${timestamp}`;
-  const signature = sign(query, apiSecret);
+  try {
+    const timestamp = Date.now();
+    const query = `timestamp=${timestamp}`;
+    const signature = sign(query, apiSecret);
 
-  const url = `${BASE_URL}/sapi/v1/account/apiRestrictions?${query}&signature=${signature}`;
+    const url = `${BASE_URL}/sapi/v1/account/apiRestrictions?${query}&signature=${signature}`;
 
-  const { data } = await axios.get(url, {
-    headers: { 'X-MBX-APIKEY': apiKey },
-    timeout: 10000,
-  });
+    const { data } = await axios.get(url, {
+      headers: { 'X-MBX-APIKEY': apiKey },
+      timeout: 10000,
+    });
 
-  // data looks like:
-  // {
-  //   ipRestrict: false,
-  //   enableWithdrawals: false,
-  //   enableInternalTransfer: true,
-  //   enableSpotAndMarginTrading: true,
-  //   enableFutures: true,
-  //   ...
-  // }
-  return {
-    spotTrading: !!data.enableSpotAndMarginTrading,
-    futuresTrading: !!data.enableFutures,
-    withdrawals: !!data.enableWithdrawals,
-    raw: data,
-  };
+    return {
+      spotTrading: !!data.enableSpotAndMarginTrading,
+      futuresTrading: !!data.enableFutures,
+      withdrawals: !!data.enableWithdrawals,
+      raw: data,
+    };
+  } catch (err) {
+    // If sapi fails (e.g. missing SAPI permissions), fallback to account snapshot
+    const snap = await getAccountSnapshot(apiKey, apiSecret);
+    return {
+      spotTrading: snap.canTrade ?? true,
+      futuresTrading: true,
+      withdrawals: false,
+      raw: snap,
+    };
+  }
 }
 
 /**

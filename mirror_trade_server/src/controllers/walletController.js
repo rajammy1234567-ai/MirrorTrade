@@ -29,6 +29,8 @@ const createDeposit = async (req, res) => {
       amountUsdt: req.body.amountUsdt ?? req.body.amount,
       amountBnb: req.body.amountBnb,
       txHash: req.body.txHash,
+      targetRank: req.body.targetRank,
+      targetPrice: req.body.targetPrice,
     });
     res.status(201).json({
       success: true,

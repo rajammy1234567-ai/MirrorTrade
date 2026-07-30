@@ -16,7 +16,13 @@ export type RootStackParamList = {
   Help: undefined;
   Referral: undefined;
   TeamRank: { focus?: "T-VIP" | "C-VIP" } | undefined;
-  Deposit: undefined;
+  Deposit:
+    | {
+        targetRank?: string;
+        targetPrice?: number;
+        neededUsdt?: number;
+      }
+    | undefined;
   Withdraw: undefined;
 };
 

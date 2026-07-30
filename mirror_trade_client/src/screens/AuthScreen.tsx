@@ -1,10 +1,12 @@
 import React, { useState } from "react";
 import {
   Alert,
+  Modal,
   Platform,
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,6 +16,7 @@ import { useAuth } from "../context/AuthContext";
 import Screen from "../components/Screen";
 import AuthInput from "../components/AuthInput";
 import GradientButton from "../components/GradientButton";
+import { forgotPasswordRequest, resetPasswordRequest } from "../config/api";
 import { RootStackParamList } from "../navigation/types";
 import { colors } from "../theme/colors";
 
@@ -71,6 +74,16 @@ export default function AuthScreen({ navigation }: Props) {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // Forgot password modal state
+  const [forgotModal, setForgotModal] = useState(false);
+  const [forgotStep, setForgotStep] = useState<1 | 2>(1);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [resetCode, setResetCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [newPasswordVisible, setNewPasswordVisible] = useState(false);
+  const [forgotError, setForgotError] = useState("");
+  const [forgotSubmitting, setForgotSubmitting] = useState(false);
+
   const switchTab = (next: Tab) => {
     setTab(next);
     setError("");
@@ -121,6 +134,66 @@ export default function AuthScreen({ navigation }: Props) {
     }
   };
 
+  const openForgotModal = () => {
+    setForgotEmail(email.trim());
+    setResetCode("");
+    setNewPassword("");
+    setForgotError("");
+    setForgotStep(1);
+    setForgotModal(true);
+  };
+
+  const handleSendResetCode = async () => {
+    if (!forgotEmail.trim()) {
+      setForgotError("Please enter your email");
+      return;
+    }
+    setForgotSubmitting(true);
+    setForgotError("");
+    try {
+      const res = await forgotPasswordRequest(forgotEmail.trim());
+      if (res.resetCode) {
+        setResetCode(res.resetCode);
+        Alert.alert(
+          "Reset Code Sent",
+          `Use OTP code: ${res.resetCode} to reset your password.`
+        );
+      }
+      setForgotStep(2);
+    } catch (err) {
+      setForgotError(
+        err instanceof Error ? err.message : "Failed to send reset code"
+      );
+    } finally {
+      setForgotSubmitting(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetCode.trim() || !newPassword || newPassword.length < 6) {
+      setForgotError("Code and new password (min 6 chars) required");
+      return;
+    }
+    setForgotSubmitting(true);
+    setForgotError("");
+    try {
+      await resetPasswordRequest(forgotEmail.trim(), resetCode.trim(), newPassword);
+      setForgotModal(false);
+      Alert.alert(
+        "Password Reset Successful",
+        "Your password has been reset. Logging you in now..."
+      );
+      await login(forgotEmail.trim(), newPassword);
+      navigation.replace("MainTabs");
+    } catch (err) {
+      setForgotError(
+        err instanceof Error ? err.message : "Password reset failed"
+      );
+    } finally {
+      setForgotSubmitting(false);
+    }
+  };
+
   return (
     <Screen
       keyboard
@@ -131,7 +204,7 @@ export default function AuthScreen({ navigation }: Props) {
       <View style={styles.blobTop} pointerEvents="none" />
       <View style={styles.blobBottom} pointerEvents="none" />
 
-      {/* Skip Button */}
+      {/* Header Row */}
       <View style={styles.headerRow}>
         <Pressable
           style={styles.skipBtn}
@@ -157,8 +230,8 @@ export default function AuthScreen({ navigation }: Props) {
           <Text style={styles.brand}>MirrorTrade</Text>
           <Text style={styles.tagline}>
             {tab === "login"
-              ? "Welcome back — pick up where you left off"
-              : "Start copying pro traders in minutes"}
+              ? "Welcome back — log in to access your portfolio"
+              : "Start copying top traders in minutes"}
           </Text>
         </View>
 
@@ -257,15 +330,7 @@ export default function AuthScreen({ navigation }: Props) {
             {tab === "signup" ? <PasswordStrength password={password} /> : null}
 
             {tab === "login" ? (
-              <Pressable
-                style={styles.forgot}
-                onPress={() =>
-                  Alert.alert(
-                    "Forgot password",
-                    "Password reset link will be sent to your email (demo)."
-                  )
-                }
-              >
+              <Pressable style={styles.forgot} onPress={openForgotModal}>
                 <Text style={styles.forgotText}>Forgot password?</Text>
               </Pressable>
             ) : (
@@ -293,41 +358,6 @@ export default function AuthScreen({ navigation }: Props) {
           </View>
         </View>
 
-        {/* Divider */}
-        <View style={styles.orRow}>
-          <View style={styles.orLine} />
-          <Text style={styles.orText}>or continue with</Text>
-          <View style={styles.orLine} />
-        </View>
-
-        {/* Social */}
-        <View style={styles.socialRow}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.socialBtn,
-              pressed && styles.socialBtnPressed,
-            ]}
-            onPress={() => Alert.alert("Google", "Social login coming soon")}
-          >
-            <View style={[styles.socialIcon, styles.googleIcon]}>
-              <Ionicons name="logo-google" size={16} color="#FFFFFF" />
-            </View>
-            <Text style={styles.socialText}>Google</Text>
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [
-              styles.socialBtn,
-              pressed && styles.socialBtnPressed,
-            ]}
-            onPress={() => Alert.alert("Apple", "Social login coming soon")}
-          >
-            <View style={[styles.socialIcon, styles.appleIcon]}>
-              <Ionicons name="logo-apple" size={17} color="#FFFFFF" />
-            </View>
-            <Text style={styles.socialText}>Apple</Text>
-          </Pressable>
-        </View>
-
         {/* Switch account type */}
         {tab === "login" ? (
           <Text style={styles.switchHint}>
@@ -353,6 +383,92 @@ export default function AuthScreen({ navigation }: Props) {
           </Text>
         </View>
       </View>
+
+      {/* Forgot Password Modal */}
+      <Modal
+        visible={forgotModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setForgotModal(false)}
+      >
+        <View style={styles.modalBg}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {forgotStep === 1 ? "Forgot Password" : "Reset Password"}
+              </Text>
+              <Pressable onPress={() => setForgotModal(false)}>
+                <Ionicons name="close" size={22} color={colors.muted} />
+              </Pressable>
+            </View>
+
+            <Text style={styles.modalSub}>
+              {forgotStep === 1
+                ? "Enter your account email to receive a 6-digit reset code."
+                : `Enter the 6-digit code sent to ${forgotEmail}`}
+            </Text>
+
+            {forgotStep === 1 ? (
+              <View style={{ marginTop: 14 }}>
+                <AuthInput
+                  icon="mail-outline"
+                  label="Registered Email"
+                  placeholder="you@email.com"
+                  value={forgotEmail}
+                  onChangeText={setForgotEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+            ) : (
+              <View style={{ marginTop: 14, gap: 10 }}>
+                <AuthInput
+                  icon="key-outline"
+                  label="6-Digit Reset Code"
+                  placeholder="e.g. 123456"
+                  value={resetCode}
+                  onChangeText={setResetCode}
+                  keyboardType="number-pad"
+                />
+                <AuthInput
+                  icon="lock-closed-outline"
+                  label="New Password"
+                  placeholder="Min. 6 characters"
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  secureTextEntry
+                  showPasswordToggle
+                  passwordVisible={newPasswordVisible}
+                  onTogglePassword={() => setNewPasswordVisible((v) => !v)}
+                />
+              </View>
+            )}
+
+            {forgotError ? (
+              <View style={[styles.errorBox, { marginTop: 12 }]}>
+                <Ionicons name="alert-circle" size={16} color={colors.loss} />
+                <Text style={styles.error}>{forgotError}</Text>
+              </View>
+            ) : null}
+
+            <View style={{ marginTop: 20 }}>
+              <GradientButton
+                label={
+                  forgotSubmitting
+                    ? "Processing…"
+                    : forgotStep === 1
+                    ? "Send Reset Code"
+                    : "Reset Password & Login"
+                }
+                disabled={forgotSubmitting}
+                onPress={
+                  forgotStep === 1 ? handleSendResetCode : handleResetPassword
+                }
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -405,11 +521,11 @@ const styles = StyleSheet.create({
   center: {
     flexGrow: 1,
     justifyContent: "center",
-    paddingVertical: 24,
+    paddingVertical: 20,
   },
   logoBlock: {
     alignItems: "center",
-    marginBottom: 28,
+    marginBottom: 24,
   },
   logoGlow: {
     position: "absolute",
@@ -432,7 +548,7 @@ const styles = StyleSheet.create({
     elevation: 14,
   },
   brand: {
-    marginTop: 16,
+    marginTop: 14,
     fontSize: 28,
     fontWeight: "800",
     color: colors.text,
@@ -568,63 +684,8 @@ const styles = StyleSheet.create({
   cta: {
     marginTop: 2,
   },
-  orRow: {
-    marginTop: 24,
-    marginBottom: 14,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  orLine: {
-    height: StyleSheet.hairlineWidth,
-    flex: 1,
-    backgroundColor: "rgba(55, 63, 82, 0.9)",
-  },
-  orText: {
-    marginHorizontal: 14,
-    fontSize: 12,
-    color: "#6B7388",
-    fontWeight: "500",
-  },
-  socialRow: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  socialBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "rgba(55, 63, 82, 0.75)",
-    backgroundColor: "rgba(18, 22, 34, 0.85)",
-    paddingVertical: 13,
-    gap: 10,
-  },
-  socialBtnPressed: {
-    opacity: 0.75,
-    transform: [{ scale: 0.98 }],
-  },
-  socialIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  googleIcon: {
-    backgroundColor: "rgba(234, 67, 53, 0.18)",
-  },
-  appleIcon: {
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-  },
-  socialText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.text,
-  },
   switchHint: {
-    marginTop: 22,
+    marginTop: 20,
     textAlign: "center",
     fontSize: 13.5,
     color: colors.muted,
@@ -650,5 +711,37 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "#8B95B8",
     fontWeight: "500",
+  },
+  modalBg: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.75)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalCard: {
+    width: "100%",
+    maxWidth: 440,
+    backgroundColor: colors.card,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: colors.text,
+  },
+  modalSub: {
+    fontSize: 13,
+    color: colors.muted,
+    marginTop: 6,
+    lineHeight: 18,
   },
 });

@@ -599,7 +599,52 @@ async function closePosition({ userId, positionId }) {
     await refreshSubscriptionEquity(sub._id);
   }
 
+  // Credit profit to user withdrawable walletBalance
+  if (pnl > 0) {
+    const user = await User.findById(userId);
+    if (user) {
+      user.walletBalance = Math.round(((user.walletBalance || 0) + pnl) * 100) / 100;
+      await user.save();
+    }
+  }
+
   return formatPosition(pos);
+}
+
+async function createTrader({ name, handle, bio, winRate, roi30d, risk, avatar }) {
+  const cleanName = String(name || "Master Trader").trim();
+  const slug = `${cleanName.toLowerCase().replace(/[^a-z0-9]/g, "-")}-${Date.now().toString(36)}`;
+  const doc = await Trader.create({
+    slug,
+    name: cleanName,
+    handle: handle || `@${slug}`,
+    avatar: avatar || cleanName.slice(0, 2).toUpperCase(),
+    verified: true,
+    winRate: winRate != null ? Number(winRate) : 75,
+    roi30d: roi30d != null ? Number(roi30d) : 25,
+    totalRoi: roi30d != null ? Number(roi30d) * 3 : 75,
+    followers: 100,
+    copiers: 10,
+    risk: risk || "Medium",
+    maxDrawdown: 10,
+    avgHold: "1d",
+    bio: bio || "Professional trader specializing in crypto momentum setups.",
+    equity: [100, 105, 110, 115, 120, 125],
+    openLegs: [
+      { pair: "BTC/USDT", symbol: "BTCUSDT", side: "long", weight: 0.5, entry: 0 },
+      { pair: "ETH/USDT", symbol: "ETHUSDT", side: "long", weight: 0.5, entry: 0 },
+    ],
+  });
+  return formatTrader(doc);
+}
+
+async function deleteTrader(traderId) {
+  const doc = await Trader.findById(traderId);
+  if (!doc) {
+    throw Object.assign(new Error("Trader not found"), { statusCode: 404 });
+  }
+  await Trader.deleteOne({ _id: traderId });
+  return { id: traderId, deleted: true };
 }
 
 async function portfolioSummary(userId) {
@@ -646,4 +691,6 @@ module.exports = {
   formatTrader,
   formatPosition,
   formatSubscription,
+  createTrader,
+  deleteTrader,
 };

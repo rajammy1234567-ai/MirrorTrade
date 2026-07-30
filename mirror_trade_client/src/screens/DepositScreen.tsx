@@ -33,11 +33,17 @@ import { colors } from "../theme/colors";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Deposit">;
 
-export default function DepositScreen({ navigation }: Props) {
+export default function DepositScreen({ navigation, route }: Props) {
+  const targetRank = route.params?.targetRank;
+  const targetPrice = route.params?.targetPrice;
+  const neededUsdt = route.params?.neededUsdt;
+
   const [info, setInfo] = useState<DepositInfo | null>(null);
   const [wallet, setWallet] = useState<WalletSnapshot | null>(null);
   const [history, setHistory] = useState<DepositRequestRow[]>([]);
-  const [amount, setAmount] = useState("");
+  const [amount, setAmount] = useState(
+    neededUsdt ? String(neededUsdt) : targetPrice ? String(targetPrice) : ""
+  );
   const [txHash, setTxHash] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -101,10 +107,26 @@ export default function DepositScreen({ navigation }: Props) {
           info?.bnbToUsdtRate && info.bnbToUsdtRate > 0
             ? Math.round((amt / info.bnbToUsdtRate) * 1e6) / 1e6
             : undefined,
+        targetRank: targetRank || undefined,
+        targetPrice: targetPrice || undefined,
       });
       Alert.alert(
-        res.data.autoCredited ? "Deposit credited" : "Request submitted",
-        res.message
+        res.data.autoCredited ? "Deposit Credited!" : "Request Submitted",
+        res.data.autoCredited
+          ? `Your deposit of ${amt} USDT was credited! You can now activate ${targetRank || "your VIP level"}.`
+          : res.message,
+        [
+          {
+            text: targetRank ? `Go to ${targetRank}` : "OK",
+            onPress: () => {
+              if (targetRank) {
+                navigation.navigate("TeamRank", {
+                  focus: targetRank.startsWith("C-") ? "C-VIP" : "T-VIP",
+                });
+              }
+            },
+          },
+        ]
       );
       setAmount("");
       setTxHash("");
@@ -126,7 +148,9 @@ export default function DepositScreen({ navigation }: Props) {
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={24} color={colors.text} />
-          <Text style={styles.headerTitle}>Deposit BNB → USDT</Text>
+          <Text style={styles.headerTitle}>
+            {targetRank ? `Deposit BNB for ${targetRank}` : "Deposit BNB → USDT"}
+          </Text>
         </Pressable>
       </View>
 
@@ -146,6 +170,23 @@ export default function DepositScreen({ navigation }: Props) {
             />
           }
         >
+          {targetRank ? (
+            <View style={styles.targetBanner}>
+              <View style={styles.targetBannerIcon}>
+                <Ionicons name="diamond" size={20} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.targetBannerTitle}>
+                  Depositing for {targetRank} ({formatMoney(targetPrice ?? 0, { decimals: 0 })} USD)
+                </Text>
+                <Text style={styles.targetBannerSub}>
+                  {neededUsdt
+                    ? `Deposit ${formatMoney(neededUsdt, { decimals: 0 })} USDT via BNB to meet the required level balance.`
+                    : `Deposit USDT to unlock ${targetRank}.`}
+                </Text>
+              </View>
+            </View>
+          ) : null}
           <View style={styles.balCard}>
             <Text style={styles.balLabel}>Your USDT balance</Text>
             <Text style={styles.balValue}>
@@ -263,7 +304,35 @@ const styles = StyleSheet.create({
   },
   backBtn: { flexDirection: "row", alignItems: "center", gap: 4 },
   headerTitle: { color: colors.text, fontSize: 18, fontWeight: "700" },
-  body: { padding: 16, paddingBottom: 40, gap: 14 },
+  body: { padding: 16, paddingBottom: 140, gap: 14 },
+  targetBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "rgba(79, 110, 247, 0.12)",
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "rgba(79, 110, 247, 0.35)",
+  },
+  targetBannerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(79, 110, 247, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  targetBannerTitle: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  targetBannerSub: {
+    color: colors.muted,
+    fontSize: 12,
+    marginTop: 2,
+  },
   balCard: {
     backgroundColor: colors.elevated,
     borderRadius: 16,

@@ -93,9 +93,12 @@ export default function DepositsPage() {
     setSuccess("");
     try {
       if (actionType === "approve") {
-        await api.post(`/admin/deposits/${actionRow.id}/approve`, { note });
+        const res = await api.post(`/admin/deposits/${actionRow.id}/approve`, { note });
+        const autoLevel = res.data?.data?.autoPurchasedLevel?.rank;
         setSuccess(
-          `Deposit ${formatMoney(actionRow.amountUsdt)} credited to ${actionRow.user?.name || "user"}`
+          `Deposit ${formatMoney(actionRow.amountUsdt)} credited to ${actionRow.user?.name || "user"}${
+            autoLevel ? ` · Auto-activated level ${autoLevel}! 🎉` : ""
+          }`
         );
       } else {
         await api.post(`/admin/deposits/${actionRow.id}/reject`, { note });
@@ -232,17 +235,29 @@ export default function DepositsPage() {
                           ~{d.amountBnb} {d.coin || "BNB"}
                         </p>
                       ) : null}
+                      {d.targetRank ? (
+                        <span className="mt-1 inline-flex items-center rounded-md bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
+                          Target: {d.targetRank}
+                        </span>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3">
                       <p className="text-xs text-slate-600">
                         {d.network || "BSC (BEP-20)"}
                       </p>
-                      <p
-                        className="font-mono text-xs text-slate-500"
-                        title={d.txHash || ""}
-                      >
-                        {shortHash(d.txHash)}
-                      </p>
+                      {d.txHash ? (
+                        <a
+                          href={`https://bscscan.com/tx/${d.txHash}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-mono text-xs text-blue-600 hover:underline"
+                          title="View on BSCScan"
+                        >
+                          {shortHash(d.txHash)} ↗
+                        </a>
+                      ) : (
+                        <p className="font-mono text-xs text-slate-400">No tx hash</p>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-slate-600">
                       {formatDate(d.createdAt)}

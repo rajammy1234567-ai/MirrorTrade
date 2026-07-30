@@ -30,6 +30,11 @@ const withdrawRequestSchema = new mongoose.Schema(
       type: String,
       default: "BSC (BEP-20)",
     },
+    txHash: {
+      type: String,
+      default: null,
+      trim: true,
+    },
     status: {
       type: String,
       enum: ["pending", "paid", "rejected"],

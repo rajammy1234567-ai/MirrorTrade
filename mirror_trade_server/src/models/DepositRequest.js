@@ -41,6 +41,14 @@ const depositRequestSchema = new mongoose.Schema(
       trim: true,
       index: true,
     },
+    targetRank: {
+      type: String,
+      default: null,
+    },
+    targetPrice: {
+      type: Number,
+      default: null,
+    },
     status: {
       type: String,
       enum: ["pending", "credited", "rejected"],

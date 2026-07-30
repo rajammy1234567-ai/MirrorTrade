@@ -77,6 +77,8 @@ export type DepositRow = {
   network?: string;
   depositAddress?: string;
   txHash?: string | null;
+  targetRank?: string | null;
+  targetPrice?: number | null;
   status: "pending" | "credited" | "rejected" | string;
   note?: string;
   creditedAt?: string | null;
@@ -90,6 +92,7 @@ export type WithdrawRow = {
   currency?: string;
   payoutAddress: string;
   network?: string;
+  txHash?: string | null;
   status: "pending" | "paid" | "rejected" | string;
   note?: string;
   processedAt?: string | null;

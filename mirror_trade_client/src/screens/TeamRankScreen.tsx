@@ -193,6 +193,8 @@ function TVipPlanCard({
 }) {
   const share = row.profitSharePercent;
   const unlocked = priceToReach <= 0;
+  const hasEnough = usdtBalance >= priceToReach;
+
   return (
     <View style={[styles.planCard, active && styles.planCardActiveT]}>
       {active ? (
@@ -217,17 +219,16 @@ function TVipPlanCard({
       </View>
       {!unlocked ? (
         <Pressable
-          style={[
-            styles.buyBtn,
-            (buying || usdtBalance < priceToReach) && { opacity: 0.5 },
-          ]}
-          disabled={buying || usdtBalance < priceToReach}
+          style={[styles.buyBtn, buying && { opacity: 0.5 }]}
+          disabled={buying}
           onPress={onBuy}
         >
           <Text style={styles.buyBtnText}>
             {buying
               ? "Buying…"
-              : `Buy · ${formatMoney(priceToReach, { decimals: 0 })} USDT`}
+              : hasEnough
+              ? `Buy · ${formatMoney(priceToReach, { decimals: 0 })} USDT`
+              : `Deposit & Buy · ${formatMoney(priceToReach, { decimals: 0 })} USDT`}
           </Text>
         </Pressable>
       ) : (
@@ -243,16 +244,23 @@ function CVipPlanCard({
   capital,
   directs,
   teamBusiness,
+  priceToReach,
+  buying,
+  onBuy,
 }: {
   row: CVipPlan;
   active: boolean;
   capital: number;
   directs: number;
   teamBusiness: number;
+  priceToReach?: number;
+  buying?: boolean;
+  onBuy?: () => void;
 }) {
   const dOk = capital >= row.minDeposit;
   const dirOk = directs >= row.minDirects;
   const tOk = teamBusiness >= row.minTeamBusiness;
+  const needCapital = (priceToReach ?? Math.max(0, row.minDeposit - capital)) > 0;
 
   return (
     <View style={[styles.planCard, active && styles.planCardActiveC]}>
@@ -272,6 +280,19 @@ function CVipPlanCard({
           value={formatMoney(row.minTeamBusiness, { decimals: 0 })}
         />
       </View>
+      {onBuy && needCapital ? (
+        <Pressable
+          style={[styles.buyBtn, { backgroundColor: "rgba(247, 166, 0, 0.25)", borderColor: "#F7A600", borderWidth: 1, marginTop: 12 }, buying && { opacity: 0.5 }]}
+          disabled={buying}
+          onPress={onBuy}
+        >
+          <Text style={[styles.buyBtnText, { color: "#F7A600" }]}>
+            {buying
+              ? "Buying…"
+              : `Top-up Capital · ${formatMoney(priceToReach ?? Math.max(0, row.minDeposit - capital), { decimals: 0 })} USDT`}
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -404,31 +425,62 @@ export default function TeamRankScreen({ navigation, route }: Props) {
   };
 
   const onBuyLevel = (rank: string, price: number) => {
-    Alert.alert(
-      `Buy ${rank}`,
-      `Pay ${formatMoney(price, { decimals: 0 })} USDT from your deposit balance to unlock this level?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Buy",
-          onPress: async () => {
-            setBuyingRank(rank);
-            try {
-              const res = await purchaseLevelRequest({ rank });
-              Alert.alert(
-                "Level purchased",
-                `${res.message}\nT-VIP: ${res.data.tVip}\nC-VIP: ${res.data.cVip}`
-              );
-              await load();
-            } catch (err) {
-              Alert.alert("Purchase failed", getApiErrorMessage(err));
-            } finally {
-              setBuyingRank(null);
-            }
+    const curBal = status?.usdtBalance ?? status?.depositBalance ?? 0;
+    const needed = Math.max(0, price - curBal);
+
+    if (curBal >= price) {
+      Alert.alert(
+        `Buy ${rank}`,
+        `Pay ${formatMoney(price, { decimals: 0 })} USDT from your deposit balance to unlock this level?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Deposit BNB Instead",
+            onPress: () =>
+              navigation.navigate("Deposit", {
+                targetRank: rank,
+                targetPrice: price,
+                neededUsdt: price,
+              }),
           },
-        },
-      ]
-    );
+          {
+            text: "Buy with USDT Balance",
+            onPress: async () => {
+              setBuyingRank(rank);
+              try {
+                const res = await purchaseLevelRequest({ rank });
+                Alert.alert(
+                  "Level Purchased!",
+                  `${res.message}\nT-VIP: ${res.data.tVip}\nC-VIP: ${res.data.cVip}`
+                );
+                await load();
+              } catch (err) {
+                Alert.alert("Purchase failed", getApiErrorMessage(err));
+              } finally {
+                setBuyingRank(null);
+              }
+            },
+          },
+        ]
+      );
+    } else {
+      Alert.alert(
+        `Unlock ${rank}`,
+        `This level requires ${formatMoney(price, { decimals: 0 })} USDT.\nYour USDT balance: ${formatMoney(curBal, { decimals: 0 })} USDT.\n\nYou need to deposit ${formatMoney(needed, { decimals: 0 })} USDT via BNB.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Deposit BNB Now",
+            onPress: () =>
+              navigation.navigate("Deposit", {
+                targetRank: rank,
+                targetPrice: price,
+                neededUsdt: needed,
+              }),
+          },
+        ]
+      );
+    }
   };
 
   if (loading && !status) {
@@ -776,16 +828,22 @@ export default function TeamRankScreen({ navigation, route }: Props) {
               </View>
             ) : null}
             <Text style={styles.sectionTitle}>C-VIP levels</Text>
-            {cVipPlans.map((row) => (
-              <CVipPlanCard
-                key={row.rank}
-                row={row}
-                active={status?.cVipRank === row.rank}
-                capital={capital}
-                directs={status?.directs || 0}
-                teamBusiness={status?.teamBusiness || 0}
-              />
-            ))}
+            {cVipPlans.map((row) => {
+              const priceToReach = Math.max(0, row.minDeposit - capital);
+              return (
+                <CVipPlanCard
+                  key={row.rank}
+                  row={row}
+                  active={status?.cVipRank === row.rank}
+                  capital={capital}
+                  directs={status?.directs || 0}
+                  teamBusiness={status?.teamBusiness || 0}
+                  priceToReach={priceToReach}
+                  buying={buyingRank === row.rank}
+                  onBuy={() => onBuyLevel(row.rank, priceToReach)}
+                />
+              );
+            })}
             <View style={styles.bonusCard}>
               <Text style={styles.bonusTitle}>C-VIP bonuses</Text>
               <Text style={styles.bonusLine}>
@@ -950,7 +1008,7 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   tabTextActive: { color: colors.text },
-  content: { padding: 16, paddingBottom: 40 },
+  content: { padding: 16, paddingBottom: 140 },
   errorBox: {
     backgroundColor: "rgba(255,59,92,0.12)",
     borderRadius: 12,

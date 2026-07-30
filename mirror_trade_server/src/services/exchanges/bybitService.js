@@ -32,9 +32,9 @@ async function checkApiRestrictions(apiKey, apiSecret) {
   const perms = result.permissions || {};
 
   // Bybit returns permission groups like ContractTrade, Spot, Wallet, etc.
-  // "Wallet" containing "AccountTransfer" / "SubMemberTransfer" implies transfer/withdrawal-like access.
+  // Strictly check for off-exchange crypto withdrawal permission
   const hasWithdrawPerm = (perms.Wallet || []).some((p) =>
-    ['Withdraw', 'AccountTransfer', 'SubMemberTransfer'].includes(p)
+    ['Withdraw'].includes(p)
   );
 
   return {

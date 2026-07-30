@@ -203,9 +203,41 @@ async function executeSignal({ userId, signalId, amount = 100 }) {
   };
 }
 
+async function createSignal({ provider, pair, direction, entry, target, stopLoss }) {
+  const cleanPair = String(pair || "BTC/USDT").toUpperCase().replace(/\s/g, "");
+  const symbol = cleanPair.replace("/", "").replace("-", "");
+  const slug = `${(provider || "admin").toLowerCase().replace(/[^a-z0-9]/g, "-")}-${symbol.toLowerCase()}-${Date.now().toString(36)}`;
+
+  const doc = await Signal.create({
+    slug,
+    provider: provider || "Admin Desk",
+    pair: cleanPair.includes("/") ? cleanPair : `${cleanPair}/USDT`,
+    symbol: symbol.endsWith("USDT") ? symbol : `${symbol}USDT`,
+    direction: direction === "short" ? "short" : "long",
+    entry: Number(entry),
+    target: Number(target),
+    stopLoss: Number(stopLoss),
+    isActive: true,
+    publishedAt: new Date(),
+  });
+  return formatSignal(doc);
+}
+
+async function deleteSignal(signalId) {
+  const doc = await Signal.findById(signalId);
+  if (!doc) {
+    throw Object.assign(new Error("Signal not found"), { statusCode: 404 });
+  }
+  doc.isActive = false;
+  await doc.save();
+  return { id: String(doc._id), deleted: true };
+}
+
 module.exports = {
   listSignals,
   executeSignal,
   ensureSeedSignals,
   formatSignal,
+  createSignal,
+  deleteSignal,
 };

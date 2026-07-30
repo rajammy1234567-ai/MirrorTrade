@@ -1,9 +1,11 @@
-import React from "react";
-import { Alert, Pressable, StyleSheet, Switch, Text, View } from "react-native";
+import React, { useState } from "react";
+import { Alert, Modal, Pressable, StyleSheet, Switch, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import Screen from "../components/Screen";
+import AuthInput from "../components/AuthInput";
 import GradientButton from "../components/GradientButton";
+import { changePasswordRequest } from "../config/api";
 import { useAppData } from "../context/AppDataContext";
 import { useAuth } from "../context/AuthContext";
 import { RootStackParamList } from "../navigation/types";
@@ -14,6 +16,56 @@ type Props = NativeStackScreenProps<RootStackParamList, "Security">;
 export default function SecurityScreen({ navigation }: Props) {
   const { settings, updateSettings } = useAppData();
   const { user } = useAuth();
+
+  // Change password modal states
+  const [modalOpen, setModalOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const openModal = () => {
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setError("");
+    setModalOpen(true);
+  };
+
+  const onChangePasswordSubmit = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setError("Please fill all password fields");
+      return;
+    }
+    if (newPassword.length < 6) {
+      setError("New password must be at least 6 characters");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError("New passwords do not match");
+      return;
+    }
+
+    setSubmitting(true);
+    setError("");
+    try {
+      await changePasswordRequest(currentPassword, newPassword);
+      setModalOpen(false);
+      Alert.alert(
+        "Password Updated",
+        "Your password has been changed successfully."
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to change password"
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <Screen>
@@ -48,28 +100,16 @@ export default function SecurityScreen({ navigation }: Props) {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.section}>Sessions</Text>
+        <Text style={styles.section}>Active Device Session</Text>
         <View style={styles.session}>
           <Ionicons name="phone-portrait-outline" size={18} color={colors.primary} />
           <View style={{ flex: 1, marginLeft: 10 }}>
-            <Text style={styles.rowTitle}>This device</Text>
-            <Text style={styles.rowSub}>Active now · MirrorTrade app</Text>
+            <Text style={styles.rowTitle}>This Device</Text>
+            <Text style={styles.rowSub}>
+              Active now · {user?.deviceId ? `ID: ${user.deviceId.slice(0, 12)}…` : "MirrorTrade App"}
+            </Text>
           </View>
           <Text style={styles.active}>Active</Text>
-        </View>
-        <View style={[styles.session, styles.sessionBorder]}>
-          <Ionicons name="desktop-outline" size={18} color={colors.muted} />
-          <View style={{ flex: 1, marginLeft: 10 }}>
-            <Text style={styles.rowTitle}>Chrome · Windows</Text>
-            <Text style={styles.rowSub}>Last seen 2 days ago</Text>
-          </View>
-          <Pressable
-            onPress={() =>
-              Alert.alert("Session revoked", "Remote session signed out.")
-            }
-          >
-            <Text style={styles.revoke}>Revoke</Text>
-          </Pressable>
         </View>
       </View>
 
@@ -77,14 +117,76 @@ export default function SecurityScreen({ navigation }: Props) {
         <GradientButton
           label="Change Password"
           variant="ghost"
-          onPress={() =>
-            Alert.alert(
-              "Change password",
-              "Password reset link sent to your email (demo)."
-            )
-          }
+          onPress={openModal}
         />
       </View>
+
+      {/* Change Password Modal */}
+      <Modal
+        visible={modalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalOpen(false)}
+      >
+        <View style={styles.modalBg}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Change Password</Text>
+              <Pressable onPress={() => setModalOpen(false)}>
+                <Ionicons name="close" size={22} color={colors.muted} />
+              </Pressable>
+            </View>
+
+            <View style={{ marginTop: 14, gap: 10 }}>
+              <AuthInput
+                icon="key-outline"
+                label="Current Password"
+                placeholder="Enter current password"
+                value={currentPassword}
+                onChangeText={setCurrentPassword}
+                secureTextEntry
+                showPasswordToggle
+                passwordVisible={showCurrent}
+                onTogglePassword={() => setShowCurrent((v) => !v)}
+              />
+              <AuthInput
+                icon="lock-closed-outline"
+                label="New Password"
+                placeholder="Min. 6 characters"
+                value={newPassword}
+                onChangeText={setNewPassword}
+                secureTextEntry
+                showPasswordToggle
+                passwordVisible={showNew}
+                onTogglePassword={() => setShowNew((v) => !v)}
+              />
+              <AuthInput
+                icon="lock-closed-outline"
+                label="Confirm New Password"
+                placeholder="Re-enter new password"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry
+              />
+            </View>
+
+            {error ? (
+              <View style={styles.errorBox}>
+                <Ionicons name="alert-circle" size={16} color={colors.loss} />
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            ) : null}
+
+            <View style={{ marginTop: 20 }}>
+              <GradientButton
+                label={submitting ? "Updating Password…" : "Update Password"}
+                disabled={submitting}
+                onPress={onChangePasswordSubmit}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -127,12 +229,49 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   session: { flexDirection: "row", alignItems: "center", paddingVertical: 6 },
-  sessionBorder: {
-    marginTop: 10,
-    paddingTop: 14,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-  },
   active: { fontSize: 12, fontWeight: "700", color: colors.profit },
-  revoke: { fontSize: 12, fontWeight: "700", color: colors.loss },
+  modalBg: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.75)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalCard: {
+    width: "100%",
+    maxWidth: 440,
+    backgroundColor: colors.card,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: colors.text,
+  },
+  errorBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 59, 92, 0.28)",
+    backgroundColor: "rgba(255, 59, 92, 0.08)",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  errorText: {
+    flex: 1,
+    color: colors.loss,
+    fontSize: 13,
+    fontWeight: "500",
+  },
 });

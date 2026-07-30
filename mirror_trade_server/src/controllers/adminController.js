@@ -329,6 +329,7 @@ const payWithdrawal = async (req, res) => {
     const data = await walletService.markWithdrawPaid({
       withdrawId: req.params.id,
       adminId: req.user._id,
+      txHash: req.body.txHash || req.body.txHashParam || null,
       note: req.body.note || "",
     });
     res.json({ success: true, message: "Withdrawal marked paid", data });
@@ -361,6 +362,46 @@ const rejectWithdrawal = async (req, res) => {
   }
 };
 
+// POST /api/admin/signals
+const createSignal = async (req, res) => {
+  try {
+    const data = await signalService.createSignal(req.body);
+    res.status(201).json({ success: true, message: "Signal published", data });
+  } catch (err) {
+    res.status(err.statusCode || 400).json({ success: false, message: err.message });
+  }
+};
+
+// DELETE /api/admin/signals/:id
+const deleteSignal = async (req, res) => {
+  try {
+    const data = await signalService.deleteSignal(req.params.id);
+    res.json({ success: true, message: "Signal deactivated", data });
+  } catch (err) {
+    res.status(err.statusCode || 400).json({ success: false, message: err.message });
+  }
+};
+
+// POST /api/admin/traders
+const createTrader = async (req, res) => {
+  try {
+    const data = await copyTradeService.createTrader(req.body);
+    res.status(201).json({ success: true, message: "Trader profile created", data });
+  } catch (err) {
+    res.status(err.statusCode || 400).json({ success: false, message: err.message });
+  }
+};
+
+// DELETE /api/admin/traders/:id
+const deleteTrader = async (req, res) => {
+  try {
+    const data = await copyTradeService.deleteTrader(req.params.id);
+    res.json({ success: true, message: "Trader removed", data });
+  } catch (err) {
+    res.status(err.statusCode || 400).json({ success: false, message: err.message });
+  }
+};
+
 module.exports = {
   getStats,
   getUsers,
@@ -372,4 +413,8 @@ module.exports = {
   listWithdrawals,
   payWithdrawal,
   rejectWithdrawal,
+  createSignal,
+  deleteSignal,
+  createTrader,
+  deleteTrader,
 };

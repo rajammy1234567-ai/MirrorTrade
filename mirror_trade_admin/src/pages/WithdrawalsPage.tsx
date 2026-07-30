@@ -28,6 +28,7 @@ export default function WithdrawalsPage() {
   const [actionRow, setActionRow] = useState<WithdrawRow | null>(null);
   const [actionType, setActionType] = useState<"pay" | "reject" | null>(null);
   const [note, setNote] = useState("");
+  const [payoutTxHash, setPayoutTxHash] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -73,6 +74,7 @@ export default function WithdrawalsPage() {
     setActionRow(row);
     setActionType(type);
     setNote("");
+    setPayoutTxHash("");
     setError("");
   };
 
@@ -81,6 +83,7 @@ export default function WithdrawalsPage() {
     setActionRow(null);
     setActionType(null);
     setNote("");
+    setPayoutTxHash("");
   };
 
   const copyAddress = async (address: string) => {
@@ -100,7 +103,10 @@ export default function WithdrawalsPage() {
     setSuccess("");
     try {
       if (actionType === "pay") {
-        await api.post(`/admin/withdrawals/${actionRow.id}/pay`, { note });
+        await api.post(`/admin/withdrawals/${actionRow.id}/pay`, {
+          note,
+          txHash: payoutTxHash.trim() || undefined,
+        });
         setSuccess(
           `Marked paid: ${formatMoney(actionRow.amount)} to ${actionRow.user?.name || "user"}`
         );
@@ -232,14 +238,28 @@ export default function WithdrawalsPage() {
                       <p className="text-xs text-slate-600">
                         {w.network || "BSC (BEP-20)"}
                       </p>
-                      <button
-                        type="button"
-                        onClick={() => copyAddress(w.payoutAddress)}
+                      <a
+                        href={`https://bscscan.com/address/${w.payoutAddress}`}
+                        target="_blank"
+                        rel="noreferrer"
                         className="font-mono text-xs text-blue-600 hover:underline"
                         title={w.payoutAddress}
                       >
-                        {shortHash(w.payoutAddress, 12, 10)}
-                      </button>
+                        {shortHash(w.payoutAddress, 10, 8)} ↗
+                      </a>
+                      {w.txHash ? (
+                        <p className="mt-0.5">
+                          <a
+                            href={`https://bscscan.com/tx/${w.txHash}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="font-mono text-[11px] text-emerald-600 hover:underline"
+                            title={w.txHash}
+                          >
+                            Tx: {shortHash(w.txHash, 8, 6)} ↗
+                          </a>
+                        </p>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3 text-slate-600">
                       {formatDate(w.createdAt)}
@@ -301,18 +321,32 @@ export default function WithdrawalsPage() {
         {actionRow ? (
           <div className="space-y-4">
             <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600">
-              <p className="text-slate-400">Send to</p>
+              <p className="text-slate-400">Send to payout address</p>
               <p className="mt-1 break-all font-mono text-xs text-slate-800">
                 {actionRow.payoutAddress}
               </p>
               <button
                 type="button"
                 onClick={() => copyAddress(actionRow.payoutAddress)}
-                className="mt-2 text-xs font-semibold text-blue-600"
+                className="mt-2 text-xs font-semibold text-blue-600 hover:underline"
               >
                 Copy address
               </button>
             </div>
+            {actionType === "pay" ? (
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  Payout Tx Hash (optional)
+                </label>
+                <input
+                  type="text"
+                  value={payoutTxHash}
+                  onChange={(e) => setPayoutTxHash(e.target.value)}
+                  placeholder="0x..."
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-mono outline-none ring-blue-500 focus:ring-2"
+                />
+              </div>
+            ) : null}
             <div>
               <label className="mb-1.5 block text-sm font-medium text-slate-700">
                 Note (optional)

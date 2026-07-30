@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
     backgroundColor: APP_BG,
   },
   scrollContent: {
-    paddingBottom: 36,
+    paddingBottom: 130,
   },
   topNav: {
     flexDirection: "row",

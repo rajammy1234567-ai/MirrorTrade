@@ -219,7 +219,7 @@ export default function ProfileScreen() {
     <View style={[styles.root, { paddingTop: Math.max(insets.top, 8) }]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scroll, { paddingBottom: 28 }]}
+        contentContainerStyle={[styles.scroll, { paddingBottom: 130 + insets.bottom }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

@@ -10,6 +10,10 @@ const {
   listWithdrawals,
   payWithdrawal,
   rejectWithdrawal,
+  createSignal,
+  deleteSignal,
+  createTrader,
+  deleteTrader,
 } = require("../controllers/adminController");
 const { protect, adminOnly } = require("../middleware/auth");
 
@@ -29,5 +33,11 @@ router.post("/deposits/:id/reject", rejectDeposit);
 router.get("/withdrawals", listWithdrawals);
 router.post("/withdrawals/:id/pay", payWithdrawal);
 router.post("/withdrawals/:id/reject", rejectWithdrawal);
+
+router.post("/signals", createSignal);
+router.delete("/signals/:id", deleteSignal);
+
+router.post("/traders", createTrader);
+router.delete("/traders/:id", deleteTrader);
 
 module.exports = router;

@@ -100,6 +100,8 @@ async function createDepositRequest({
   amountUsdt,
   amountBnb = null,
   txHash = null,
+  targetRank = null,
+  targetPrice = null,
 }) {
   const amount = round2(amountUsdt);
   if (!amount || amount < MIN_DEPOSIT_USDT) {
@@ -153,6 +155,8 @@ async function createDepositRequest({
     network: BNB_NETWORK,
     depositAddress: BNB_DEPOSIT_ADDRESS,
     txHash: normalizedTx,
+    targetRank: targetRank || null,
+    targetPrice: targetPrice != null ? Number(targetPrice) : null,
     status: "pending",
   });
 
@@ -208,10 +212,29 @@ async function approveDepositRequest({ depositId, adminId = null, note = "" }) {
   if (note) dep.note = note;
   await dep.save();
 
+  let autoPurchasedLevel = null;
+  if (dep.targetRank) {
+    try {
+      const purchasedRes = await purchaseLevel({
+        userId: dep.user,
+        rank: dep.targetRank,
+      });
+      autoPurchasedLevel = {
+        rank: dep.targetRank,
+        purchased: purchasedRes.purchased,
+        tVip: purchasedRes.tVip,
+        cVip: purchasedRes.cVip,
+      };
+    } catch (_pErr) {
+      // Non-fatal if purchase condition wasn't fully met; balance remains credited
+    }
+  }
+
   return {
     deposit: formatDeposit(dep),
     autoCredited: true,
-    wallet,
+    wallet: await snapshotWallet(dep.user),
+    autoPurchasedLevel,
     alreadyCredited: false,
   };
 }
@@ -400,7 +423,7 @@ async function requestWithdraw({
   };
 }
 
-async function markWithdrawPaid({ withdrawId, adminId, note = "" }) {
+async function markWithdrawPaid({ withdrawId, adminId, txHash = null, note = "" }) {
   const wr = await WithdrawRequest.findById(withdrawId);
   if (!wr) {
     throw Object.assign(new Error("Withdraw request not found"), {
@@ -415,6 +438,7 @@ async function markWithdrawPaid({ withdrawId, adminId, note = "" }) {
   wr.status = "paid";
   wr.processedAt = new Date();
   wr.reviewedBy = adminId;
+  if (txHash) wr.txHash = String(txHash).trim();
   if (note) wr.note = note;
   await wr.save();
   return formatWithdraw(wr);
@@ -489,6 +513,8 @@ function formatDeposit(d) {
     network: d.network,
     depositAddress: d.depositAddress,
     txHash: d.txHash,
+    targetRank: d.targetRank || null,
+    targetPrice: d.targetPrice || null,
     status: d.status,
     note: d.note,
     creditedAt: d.creditedAt,
@@ -503,6 +529,7 @@ function formatWithdraw(w) {
     currency: w.currency,
     payoutAddress: w.payoutAddress,
     network: w.network,
+    txHash: w.txHash || null,
     status: w.status,
     note: w.note,
     processedAt: w.processedAt,

@@ -60,10 +60,10 @@ export default function Screen({
     edges ?? (tabScreen || footer ? ["top", "left", "right"] : ["top", "bottom", "left", "right"]);
 
   const bottomPad = tabScreen
-    ? 20
+    ? 90 + Math.max(insets.bottom, 12)
     : footer
-      ? 16 + 72 // room so content clears sticky CTA
-      : 16;
+      ? 80 + Math.max(insets.bottom, 12)
+      : 40 + Math.max(insets.bottom, 12);
 
   const body = (
     <View

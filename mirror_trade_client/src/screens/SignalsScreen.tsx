@@ -46,17 +46,17 @@ export default function SignalsScreen({ navigation }: Props) {
       return;
     }
 
-    const run = async () => {
+    const run = async (selectedAmount: number) => {
       setExecutingId(id);
       try {
-        const pos = await executeSignal(id, 100);
+        const pos = await executeSignal(id, selectedAmount);
         if (pos) {
           Alert.alert(
-            "Signal executed · PAPER",
-            `${pair} ${direction.toUpperCase()} is now an open position (live marks).`,
+            "Signal Executed!",
+            `${pair} ${direction.toUpperCase()} opened ($${selectedAmount} USDT) with live Binance marks. Track PnL in your portfolio.`,
             [
               {
-                text: "View portfolio",
+                text: "View Portfolio",
                 onPress: () => navigation.navigate("MainTabs"),
               },
               { text: "OK" },
@@ -70,18 +70,21 @@ export default function SignalsScreen({ navigation }: Props) {
       }
     };
 
-    if (settings.confirmOrders) {
-      Alert.alert("Execute signal", `Open ${pair} ${direction} (paper $100)?`, [
+    Alert.alert(
+      `Execute ${pair} (${direction.toUpperCase()})`,
+      "Choose position allocation in USDT:",
+      [
         { text: "Cancel", style: "cancel" },
-        { text: "Execute", onPress: () => void run() },
-      ]);
-    } else {
-      void run();
-    }
+        { text: "$25", onPress: () => void run(25) },
+        { text: "$50", onPress: () => void run(50) },
+        { text: "$100", onPress: () => void run(100) },
+        { text: "$250", onPress: () => void run(250) },
+      ]
+    );
   };
 
   return (
-    <Screen>
+    <Screen tabScreen>
       <View style={styles.nav}>
         <Pressable onPress={() => navigation.goBack()} style={styles.back}>
           <Ionicons name="arrow-back" size={18} color={colors.text} />

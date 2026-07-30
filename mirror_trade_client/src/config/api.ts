@@ -60,6 +60,7 @@ export type AuthUser = {
   name: string;
   email: string;
   phone?: string | null;
+  deviceId?: string | null;
   role: "user" | "admin";
   isActive: boolean;
   isEmailVerified?: boolean;
@@ -227,6 +228,8 @@ export type DepositRequestRow = {
   network: string;
   depositAddress: string;
   txHash?: string | null;
+  targetRank?: string | null;
+  targetPrice?: number | null;
   status: "pending" | "credited" | "rejected";
   note?: string;
   creditedAt?: string | null;
@@ -239,6 +242,7 @@ export type WithdrawRequestRow = {
   currency: string;
   payoutAddress: string;
   network: string;
+  txHash?: string | null;
   status: "pending" | "paid" | "rejected";
   note?: string;
   processedAt?: string | null;
@@ -363,6 +367,21 @@ export async function registerRequest(payload: RegisterPayload) {
     ...(phone?.trim() ? { phone: phone.trim() } : {}),
     ...(deviceId ? { deviceId } : {}),
   });
+  return data;
+}
+
+export async function forgotPasswordRequest(email: string) {
+  const { data } = await api.post<{ success: boolean; message: string; resetCode?: string }>("/auth/forgot-password", { email });
+  return data;
+}
+
+export async function resetPasswordRequest(email: string, code: string, newPassword: string) {
+  const { data } = await api.post<AuthResponse>("/auth/reset-password", { email, code, newPassword });
+  return data;
+}
+
+export async function changePasswordRequest(currentPassword: string, newPassword: string) {
+  const { data } = await api.post<{ success: boolean; message: string }>("/auth/change-password", { currentPassword, newPassword });
   return data;
 }
 
@@ -703,6 +722,8 @@ export async function createDepositRequestApi(payload: {
   amountUsdt: number;
   amountBnb?: number;
   txHash?: string;
+  targetRank?: string;
+  targetPrice?: number;
 }) {
   const { data } = await api.post<{
     success: boolean;

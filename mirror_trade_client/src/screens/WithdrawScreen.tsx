@@ -78,8 +78,12 @@ export default function WithdrawScreen({ navigation }: Props) {
       );
       return;
     }
-    if (!address.trim() || address.trim().length < 10) {
-      Alert.alert("Address required", "Enter your BNB / USDT payout address");
+    const addr = address.trim();
+    if (!addr || !/^0x[a-fA-F0-9]{40}$/.test(addr)) {
+      Alert.alert(
+        "Invalid Address",
+        "Payout address must be a valid BSC (BEP-20) address starting with 0x (42 characters)."
+      );
       return;
     }
 
@@ -87,9 +91,9 @@ export default function WithdrawScreen({ navigation }: Props) {
     try {
       const res = await createWithdrawRequestApi({
         amount: amt,
-        payoutAddress: address.trim(),
+        payoutAddress: addr,
       });
-      Alert.alert("Submitted", res.message);
+      Alert.alert("Withdrawal Requested", res.message);
       setAmount("");
       await load();
     } catch (err) {
@@ -235,7 +239,7 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 4 },
   backBtn: { flexDirection: "row", alignItems: "center", gap: 4 },
   headerTitle: { color: colors.text, fontSize: 18, fontWeight: "700" },
-  body: { padding: 16, paddingBottom: 40, gap: 14 },
+  body: { padding: 16, paddingBottom: 140, gap: 14 },
   balCard: {
     backgroundColor: colors.elevated,
     borderRadius: 16,

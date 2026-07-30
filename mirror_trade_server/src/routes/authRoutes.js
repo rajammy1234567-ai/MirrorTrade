@@ -6,6 +6,9 @@ const {
   login,
   getMe,
   verify,
+  forgotPassword,
+  resetPassword,
+  changePassword,
 } = require("../controllers/authController");
 const { protect } = require("../middleware/auth");
 const { authLimiter, verifyLimiter } = require("../middleware/rateLimit");
@@ -37,5 +40,12 @@ router.get("/me", protect, getMe);
 
 // Verify email/phone → triggers referral rewards once
 router.post("/verify", protect, verifyLimiter, verify);
+
+// Forgot & Reset Password
+router.post("/forgot-password", authLimiter, forgotPassword);
+router.post("/reset-password", authLimiter, resetPassword);
+
+// Change Password (authenticated)
+router.post("/change-password", protect, changePassword);
 
 module.exports = router;

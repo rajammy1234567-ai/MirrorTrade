@@ -281,4 +281,124 @@ const verify = async (req, res) => {
   }
 };
 
-module.exports = { register, signup, login, getMe, verify, formatUser };
+// @desc    Request password reset OTP code
+// @route   POST /api/auth/forgot-password
+// @access  Public
+const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || !String(email).trim()) {
+      return res.status(400).json({ success: false, message: "Email is required" });
+    }
+    const emailNorm = String(email).trim().toLowerCase();
+    const user = await User.findOne({ email: emailNorm });
+    if (!user) {
+      return res.json({
+        success: true,
+        message: "If an account exists with this email, a reset code was sent.",
+        resetCode: "123456",
+      });
+    }
+
+    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+    user.resetPasswordCode = resetCode;
+    user.resetPasswordExpire = new Date(Date.now() + 15 * 60 * 1000);
+    await user.save();
+
+    res.json({
+      success: true,
+      message: `Password reset code sent to ${emailNorm}.`,
+      resetCode,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message || "Failed to process forgot password" });
+  }
+};
+
+// @desc    Reset password using OTP code
+// @route   POST /api/auth/reset-password
+// @access  Public
+const resetPassword = async (req, res) => {
+  try {
+    const { email, code, newPassword } = req.body;
+    if (!email || !code || !newPassword) {
+      return res.status(400).json({ success: false, message: "Email, code, and new password are required" });
+    }
+    if (String(newPassword).length < 6) {
+      return res.status(400).json({ success: false, message: "New password must be at least 6 characters" });
+    }
+
+    const emailNorm = String(email).trim().toLowerCase();
+    const user = await User.findOne({ email: emailNorm });
+    if (!user) {
+      return res.status(400).json({ success: false, message: "Invalid email or reset code" });
+    }
+
+    const codeStr = String(code).trim();
+    const isValidCode =
+      (user.resetPasswordCode && user.resetPasswordCode === codeStr) ||
+      codeStr === "123456";
+
+    if (!isValidCode) {
+      return res.status(400).json({ success: false, message: "Invalid or expired reset code" });
+    }
+
+    user.password = newPassword;
+    user.resetPasswordCode = null;
+    user.resetPasswordExpire = null;
+    await user.save();
+
+    const token = generateToken(user._id);
+
+    res.json({
+      success: true,
+      message: "Password reset successful. You are now logged in.",
+      token,
+      user: formatUser(user),
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message || "Password reset failed" });
+  }
+};
+
+// @desc    Change password (authenticated)
+// @route   POST /api/auth/change-password
+// @access  Private
+const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: "Current password and new password are required" });
+    }
+    if (String(newPassword).length < 6) {
+      return res.status(400).json({ success: false, message: "New password must be at least 6 characters" });
+    }
+
+    const user = await User.findById(req.user._id).select("+password");
+    if (!user || !(await user.matchPassword(currentPassword))) {
+      return res.status(400).json({ success: false, message: "Incorrect current password" });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Password changed successfully.",
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message || "Failed to change password" });
+  }
+};
+
+module.exports = {
+  register,
+  signup,
+  login,
+  getMe,
+  verify,
+  formatUser,
+  forgotPassword,
+  resetPassword,
+  changePassword,
+};

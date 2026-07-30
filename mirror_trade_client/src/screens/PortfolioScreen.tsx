@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -150,6 +150,7 @@ export default function PortfolioScreen() {
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 60 }}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
