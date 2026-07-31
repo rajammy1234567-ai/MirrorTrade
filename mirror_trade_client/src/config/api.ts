@@ -390,8 +390,15 @@ export async function meRequest() {
   return data;
 }
 
+export async function sendOtpRequest(email?: string) {
+  const { data } = await api.post<{ success: boolean; message: string; otpCode?: string }>("/auth/send-otp", {
+    ...(email?.trim() ? { email: email.trim() } : {}),
+  });
+  return data;
+}
+
 /**
- * Mark account verified (demo OTP). Completes pending referral rewards.
+ * Mark account verified. Completes pending referral rewards.
  * channel: "demo" | "email" | "phone" | "both"
  */
 export async function verifyAccountRequest(opts?: {

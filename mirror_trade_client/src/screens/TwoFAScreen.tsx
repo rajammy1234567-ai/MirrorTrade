@@ -1,4 +1,4 @@
-﻿import React, { useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   Alert,
   Pressable,
@@ -13,6 +13,7 @@ import Screen from "../components/Screen";
 import GradientButton from "../components/GradientButton";
 import { useAuth } from "../context/AuthContext";
 import { useAppData } from "../context/AppDataContext";
+import { getApiErrorMessage, sendOtpRequest } from "../config/api";
 import { RootStackParamList } from "../navigation/types";
 import { colors } from "../theme/colors";
 
@@ -30,6 +31,7 @@ export default function TwoFAScreen({ navigation }: Props) {
   const [codes, setCodes] = useState(["", "", "", "", "", ""]);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [resending, setResending] = useState(false);
   const inputs = useRef<(TextInput | null)[]>([]);
 
   const setDigit = (index: number, value: string) => {
@@ -50,6 +52,22 @@ export default function TwoFAScreen({ navigation }: Props) {
   const code = codes.join("");
 
   const goNext = () => navigation.replace("ExchangeConnect");
+
+  const handleResend = async () => {
+    setResending(true);
+    setError("");
+    try {
+      const res = await sendOtpRequest(user?.email);
+      Alert.alert(
+        "OTP Code Sent",
+        res.message || `Verification code sent to ${user?.email || "your email"}. Check your inbox!`
+      );
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Failed to send OTP"));
+    } finally {
+      setResending(false);
+    }
+  };
 
   const verify = async () => {
     if (code.length < 6) {
@@ -87,12 +105,12 @@ export default function TwoFAScreen({ navigation }: Props) {
         <Text style={styles.title}>Verify your account</Text>
         <Text style={styles.sub}>
           Enter the 6-digit code sent to{" "}
-          {user?.email ? user.email : "your email"}.
-          {settings.twoFAEnabled
-            ? " Demo: use any 6 digits (e.g. 123456)."
-            : " Demo OTP accepts any 6 digits."}
+          <Text style={{ color: colors.primary, fontWeight: "700" }}>
+            {user?.email ? user.email : "your email"}
+          </Text>
+          . Check your email inbox!
           {"\n"}
-          Completing verification unlocks referral rewards if you used a code.
+          Completing verification unlocks referral rewards.
         </Text>
 
         <View style={styles.row}>
@@ -124,8 +142,14 @@ export default function TwoFAScreen({ navigation }: Props) {
           />
         </View>
 
-        <Pressable style={styles.resend}>
-          <Text style={styles.resendText}>Resend code</Text>
+        <Pressable
+          style={styles.resend}
+          onPress={handleResend}
+          disabled={resending}
+        >
+          <Text style={styles.resendText}>
+            {resending ? "Sending OTP..." : "Resend OTP code"}
+          </Text>
         </Pressable>
 
         <Pressable style={styles.skip} onPress={goNext}>

@@ -29,9 +29,9 @@ export default function SignalsPage() {
   const [provider, setProvider] = useState("Nova Desk");
   const [pair, setPair] = useState("BTC/USDT");
   const [direction, setDirection] = useState<"long" | "short">("long");
-  const [entry, setEntry] = useState("");
-  const [target, setTarget] = useState("");
-  const [stopLoss, setStopLoss] = useState("");
+  const [entry, setEntry] = useState("65000");
+  const [target, setTarget] = useState("68500");
+  const [stopLoss, setStopLoss] = useState("63500");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -66,11 +66,8 @@ export default function SignalsPage() {
         target: Number(target),
         stopLoss: Number(stopLoss),
       });
-      setSuccess(`Signal ${pair} (${direction.toUpperCase()}) published successfully!`);
+      setSuccess(`Signal for ${pair} (${direction.toUpperCase()}) broadcasted successfully! 🚀`);
       setModalOpen(false);
-      setEntry("");
-      setTarget("");
-      setStopLoss("");
       await load();
     } catch (err) {
       setError(getErrorMessage(err, "Failed to publish signal"));
@@ -92,91 +89,104 @@ export default function SignalsPage() {
   };
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
-        title="Signals Management"
-        description="Publish live trade signals to the client app feed with entry, target, and stop loss."
+        title="Trading Signals Broadcast"
+        description="Publish live crypto trade signals to the MirrorTrade client app feed."
         actions={
           <div className="flex gap-2">
             <button
               type="button"
               onClick={load}
               disabled={loading}
-              className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
+              className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-bold text-amber-400 shadow-sm transition hover:bg-slate-700 hover:text-amber-300 disabled:opacity-60"
             >
-              {loading ? "Loading…" : "Refresh"}
+              {loading ? "Loading..." : "⚡ Refresh Feed"}
             </button>
             <button
               type="button"
               onClick={() => setModalOpen(true)}
-              className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500"
+              className="rounded-xl bg-amber-400 px-4 py-2 text-xs font-bold text-slate-950 shadow-md hover:bg-amber-300 transition"
             >
-              + Publish Signal
+              + Broadcast New Signal
             </button>
           </div>
         }
       />
 
       {error ? (
-        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-400">
           {error}
         </div>
       ) : null}
       {success ? (
-        <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-400">
           {success}
         </div>
       ) : null}
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      {/* Signals Grid / Table */}
+      <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 shadow-xl">
         {loading ? (
-          <p className="px-5 py-12 text-center text-slate-500">Loading signals…</p>
+          <p className="px-5 py-12 text-center text-sm font-medium text-slate-400">
+            Loading signals feed...
+          </p>
         ) : signals.length === 0 ? (
           <EmptyState
             title="No signals published"
-            description="Click '+ Publish Signal' to broadcast trade setups to app users."
+            description="Click '+ Broadcast New Signal' to broadcast trade setups to client app users."
           />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <thead className="bg-slate-900 text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800">
                 <tr>
-                  <th className="px-4 py-3 font-semibold">Provider</th>
-                  <th className="px-4 py-3 font-semibold">Pair / Side</th>
-                  <th className="px-4 py-3 font-semibold">Entry</th>
-                  <th className="px-4 py-3 font-semibold">Target (TP)</th>
-                  <th className="px-4 py-3 font-semibold">Stop Loss (SL)</th>
-                  <th className="px-4 py-3 font-semibold">Published</th>
-                  <th className="px-4 py-3 font-semibold">Action</th>
+                  <th className="px-5 py-4">Provider / Pair</th>
+                  <th className="px-5 py-4">Direction</th>
+                  <th className="px-5 py-4">Entry Target</th>
+                  <th className="px-5 py-4">Take Profit Target</th>
+                  <th className="px-5 py-4">Stop Loss</th>
+                  <th className="px-5 py-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-800/60">
                 {signals.map((s) => (
-                  <tr key={s.id} className="border-t border-slate-100 hover:bg-slate-50/70">
-                    <td className="px-4 py-3 font-medium text-slate-900">{s.provider}</td>
-                    <td className="px-4 py-3">
-                      <span className="font-semibold text-slate-900">{s.pair}</span>{" "}
+                  <tr key={s.id} className="hover:bg-slate-900/40 transition">
+                    <td className="px-5 py-4">
+                      <p className="font-bold text-white text-base">
+                        {s.pair}
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        Desk: {s.provider || "Admin Desk"}
+                      </p>
+                    </td>
+                    <td className="px-5 py-4">
                       <span
-                        className={`ml-1 rounded px-1.5 py-0.5 text-xs font-bold ${
+                        className={`inline-block rounded-md border px-2.5 py-1 text-xs font-extrabold uppercase ${
                           s.direction === "long"
-                            ? "bg-emerald-100 text-emerald-800"
-                            : "bg-rose-100 text-rose-800"
+                            ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-400"
+                            : "bg-rose-500/20 border-rose-500/40 text-rose-400"
                         }`}
                       >
-                        {s.direction.toUpperCase()}
+                        {s.direction}
                       </span>
                     </td>
-                    <td className="px-4 py-3 font-mono text-slate-700">${s.entry}</td>
-                    <td className="px-4 py-3 font-mono text-emerald-600">${s.target}</td>
-                    <td className="px-4 py-3 font-mono text-rose-600">${s.stopLoss}</td>
-                    <td className="px-4 py-3 text-slate-500">{s.time}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-5 py-4 font-mono font-bold text-white">
+                      ${s.entry?.toLocaleString() ?? s.entry}
+                    </td>
+                    <td className="px-5 py-4 font-mono font-bold text-emerald-400">
+                      ${s.target?.toLocaleString() ?? s.target}
+                    </td>
+                    <td className="px-5 py-4 font-mono font-bold text-rose-400">
+                      ${s.stopLoss?.toLocaleString() ?? s.stopLoss}
+                    </td>
+                    <td className="px-5 py-4 text-right">
                       <button
                         type="button"
                         onClick={() => onDeleteSignal(s.id, s.pair)}
-                        className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                        className="rounded-lg bg-rose-500/10 border border-rose-500/30 px-3 py-1.5 text-xs font-bold text-rose-400 hover:bg-rose-500/20"
                       >
-                        Deactivate
+                        Deactivate 🗑️
                       </button>
                     </td>
                   </tr>
@@ -187,101 +197,130 @@ export default function SignalsPage() {
         )}
       </div>
 
-      {/* Publish Signal Modal */}
-      <Modal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        title="Publish New Signal"
-        subtitle="Broadcast a new trade call to all MirrorTrade app clients"
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Provider Name</label>
-            <input
-              type="text"
-              value={provider}
-              onChange={(e) => setProvider(e.target.value)}
-              placeholder="e.g. Nova Desk"
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
+      {/* Broadcast Signal Modal */}
+      {modalOpen ? (
+        <Modal title="Broadcast Trading Signal" onClose={() => setModalOpen(false)}>
+          <div className="space-y-4">
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Pair</label>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                Signal Desk Provider
+              </label>
               <input
                 type="text"
-                value={pair}
-                onChange={(e) => setPair(e.target.value)}
-                placeholder="e.g. BTC/USDT"
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                value={provider}
+                onChange={(e) => setProvider(e.target.value)}
+                placeholder="e.g. Nova Desk, Alpha Signals"
+                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2.5 text-sm text-white outline-none focus:border-amber-400"
               />
             </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Direction</label>
-              <select
-                value={direction}
-                onChange={(e) => setDirection(e.target.value as "long" | "short")}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                  Trading Pair
+                </label>
+                <input
+                  type="text"
+                  value={pair}
+                  onChange={(e) => setPair(e.target.value)}
+                  placeholder="BTC/USDT"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2.5 text-sm text-white font-bold outline-none focus:border-amber-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                  Direction
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDirection("long")}
+                    className={`rounded-xl border p-2.5 text-xs font-bold uppercase transition ${
+                      direction === "long"
+                        ? "border-emerald-400 bg-emerald-500/20 text-emerald-400"
+                        : "border-slate-800 bg-slate-900 text-slate-400"
+                    }`}
+                  >
+                    LONG ↗
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDirection("short")}
+                    className={`rounded-xl border p-2.5 text-xs font-bold uppercase transition ${
+                      direction === "short"
+                        ? "border-rose-400 bg-rose-500/20 text-rose-400"
+                        : "border-slate-800 bg-slate-900 text-slate-400"
+                    }`}
+                  >
+                    SHORT ↘
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                  Entry Price
+                </label>
+                <input
+                  type="number"
+                  value={entry}
+                  onChange={(e) => setEntry(e.target.value)}
+                  placeholder="65000"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2.5 text-sm text-white font-mono outline-none focus:border-amber-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                  Take Profit
+                </label>
+                <input
+                  type="number"
+                  value={target}
+                  onChange={(e) => setTarget(e.target.value)}
+                  placeholder="68500"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2.5 text-sm text-emerald-400 font-mono font-bold outline-none focus:border-amber-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                  Stop Loss
+                </label>
+                <input
+                  type="number"
+                  value={stopLoss}
+                  onChange={(e) => setStopLoss(e.target.value)}
+                  placeholder="63500"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2.5 text-sm text-rose-400 font-mono font-bold outline-none focus:border-amber-400"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3">
+              <button
+                type="button"
+                onClick={() => setModalOpen(false)}
+                disabled={submitting}
+                className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700"
               >
-                <option value="long">LONG</option>
-                <option value="short">SHORT</option>
-              </select>
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={onCreateSignal}
+                disabled={submitting}
+                className="rounded-xl bg-amber-400 px-5 py-2 text-xs font-bold text-slate-950 shadow-md hover:bg-amber-300"
+              >
+                {submitting ? "Broadcasting..." : "Broadcast Signal 🚀"}
+              </button>
             </div>
           </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Entry Price</label>
-              <input
-                type="number"
-                value={entry}
-                onChange={(e) => setEntry(e.target.value)}
-                placeholder="65000"
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Target (TP)</label>
-              <input
-                type="number"
-                value={target}
-                onChange={(e) => setTarget(e.target.value)}
-                placeholder="68000"
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Stop Loss (SL)</label>
-              <input
-                type="number"
-                value={stopLoss}
-                onChange={(e) => setStopLoss(e.target.value)}
-                placeholder="63500"
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={() => setModalOpen(false)}
-              className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              disabled={submitting}
-              onClick={onCreateSignal}
-              className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 hover:bg-blue-500"
-            >
-              {submitting ? "Publishing…" : "Publish Signal"}
-            </button>
-          </div>
-        </div>
-      </Modal>
+        </Modal>
+      ) : null}
     </div>
   );
 }

@@ -28,8 +28,8 @@ export default function TradersPage() {
   // Form states
   const [name, setName] = useState("");
   const [handle, setHandle] = useState("");
-  const [winRate, setWinRate] = useState("75");
-  const [roi30d, setRoi30d] = useState("35");
+  const [winRate, setWinRate] = useState("78");
+  const [roi30d, setRoi30d] = useState("42");
   const [risk, setRisk] = useState("Medium");
   const [bio, setBio] = useState("");
 
@@ -66,7 +66,7 @@ export default function TradersPage() {
         risk,
         bio: bio.trim() || undefined,
       });
-      setSuccess(`Master Trader ${name} profile created!`);
+      setSuccess(`Master Trader ${name} profile created! 🎉`);
       setModalOpen(false);
       setName("");
       setHandle("");
@@ -92,24 +92,24 @@ export default function TradersPage() {
   };
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         title="Master Traders Management"
-        description="Manage top copy-traders available for users to copy."
+        description="Manage top master traders available for users to copy."
         actions={
           <div className="flex gap-2">
             <button
               type="button"
               onClick={load}
               disabled={loading}
-              className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
+              className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-bold text-amber-400 shadow-sm transition hover:bg-slate-700 hover:text-amber-300 disabled:opacity-60"
             >
-              {loading ? "Loading…" : "Refresh"}
+              {loading ? "Loading..." : "⚡ Refresh List"}
             </button>
             <button
               type="button"
               onClick={() => setModalOpen(true)}
-              className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500"
+              className="rounded-xl bg-amber-400 px-4 py-2 text-xs font-bold text-slate-950 shadow-md hover:bg-amber-300 transition"
             >
               + Add Master Trader
             </button>
@@ -118,19 +118,22 @@ export default function TradersPage() {
       />
 
       {error ? (
-        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-400">
           {error}
         </div>
       ) : null}
       {success ? (
-        <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-400">
           {success}
         </div>
       ) : null}
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      {/* Master Traders Table */}
+      <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 shadow-xl">
         {loading ? (
-          <p className="px-5 py-12 text-center text-slate-500">Loading traders…</p>
+          <p className="px-5 py-12 text-center text-sm font-medium text-slate-400">
+            Loading master traders directory...
+          </p>
         ) : traders.length === 0 ? (
           <EmptyState
             title="No master traders"
@@ -139,38 +142,56 @@ export default function TradersPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <thead className="bg-slate-900 text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800">
                 <tr>
-                  <th className="px-4 py-3 font-semibold">Trader</th>
-                  <th className="px-4 py-3 font-semibold">Win Rate</th>
-                  <th className="px-4 py-3 font-semibold">30d ROI</th>
-                  <th className="px-4 py-3 font-semibold">Risk Level</th>
-                  <th className="px-4 py-3 font-semibold">Copiers</th>
-                  <th className="px-4 py-3 font-semibold">Action</th>
+                  <th className="px-5 py-4">Trader Name / Handle</th>
+                  <th className="px-5 py-4">Win Rate</th>
+                  <th className="px-5 py-4">30D ROI %</th>
+                  <th className="px-5 py-4">Copiers</th>
+                  <th className="px-5 py-4">Risk Badge</th>
+                  <th className="px-5 py-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-800/60">
                 {traders.map((t) => (
-                  <tr key={t.id} className="border-t border-slate-100 hover:bg-slate-50/70">
-                    <td className="px-4 py-3">
-                      <p className="font-semibold text-slate-900">{t.name}</p>
-                      <p className="text-xs text-slate-500">{t.handle}</p>
+                  <tr key={t.id} className="hover:bg-slate-900/40 transition">
+                    <td className="px-5 py-4">
+                      <p className="font-bold text-white text-base">
+                        {t.name}
+                      </p>
+                      <p className="text-xs text-amber-400 font-mono">
+                        {t.handle || `@${t.name?.toLowerCase().replace(/\s+/g, "")}`}
+                      </p>
                     </td>
-                    <td className="px-4 py-3 font-semibold text-emerald-600">{t.winRate}%</td>
-                    <td className="px-4 py-3 font-semibold text-blue-600">+{t.roi30d}%</td>
-                    <td className="px-4 py-3">
-                      <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
-                        {t.risk}
+                    <td className="px-5 py-4 font-black text-emerald-400">
+                      {t.winRate}%
+                    </td>
+                    <td className="px-5 py-4 font-black text-amber-400 text-base">
+                      +{t.roi30d}%
+                    </td>
+                    <td className="px-5 py-4 font-bold text-white">
+                      {t.copiers || 0}
+                    </td>
+                    <td className="px-5 py-4">
+                      <span
+                        className={`inline-block rounded-md border px-2.5 py-0.5 text-xs font-extrabold ${
+                          t.risk === "Low"
+                            ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-400"
+                            : t.risk === "Medium"
+                              ? "bg-amber-500/20 border-amber-500/40 text-amber-400"
+                              : "bg-rose-500/20 border-rose-500/40 text-rose-400"
+                        }`}
+                      >
+                        {t.risk} Risk
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-slate-700">{t.copiers || 0}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-5 py-4 text-right">
                       <button
                         type="button"
                         onClick={() => onDeleteTrader(t.id, t.name)}
-                        className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                        className="rounded-lg bg-rose-500/10 border border-rose-500/30 px-3 py-1.5 text-xs font-bold text-rose-400 hover:bg-rose-500/20"
                       >
-                        Remove
+                        Remove 🗑️
                       </button>
                     </td>
                   </tr>
@@ -181,101 +202,115 @@ export default function TradersPage() {
         )}
       </div>
 
-      <Modal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        title="Add Master Trader"
-        subtitle="Create a new trader profile available for copy trading"
-      >
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Name</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Alex Mercer"
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Handle (optional)</label>
-              <input
-                type="text"
-                value={handle}
-                onChange={(e) => setHandle(e.target.value)}
-                placeholder="@alexmercer"
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
+      {/* Add Master Trader Modal */}
+      {modalOpen ? (
+        <Modal title="Create Master Trader Profile" onClose={() => setModalOpen(false)}>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                  Trader Name
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Alex Mercer"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2.5 text-sm text-white font-bold outline-none focus:border-amber-400"
+                />
+              </div>
 
-          <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                  Social Handle
+                </label>
+                <input
+                  type="text"
+                  value={handle}
+                  onChange={(e) => setHandle(e.target.value)}
+                  placeholder="@alexmercer"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2.5 text-sm text-amber-400 font-mono outline-none focus:border-amber-400"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                  Win Rate %
+                </label>
+                <input
+                  type="number"
+                  value={winRate}
+                  onChange={(e) => setWinRate(e.target.value)}
+                  placeholder="78"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2.5 text-sm text-emerald-400 font-mono font-bold outline-none focus:border-amber-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                  30D ROI %
+                </label>
+                <input
+                  type="number"
+                  value={roi30d}
+                  onChange={(e) => setRoi30d(e.target.value)}
+                  placeholder="42"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2.5 text-sm text-amber-400 font-mono font-bold outline-none focus:border-amber-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                  Risk Level
+                </label>
+                <select
+                  value={risk}
+                  onChange={(e) => setRisk(e.target.value)}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2.5 text-sm text-white font-bold outline-none focus:border-amber-400"
+                >
+                  <option value="Low">Low Risk</option>
+                  <option value="Medium">Medium Risk</option>
+                  <option value="High">High Risk</option>
+                </select>
+              </div>
+            </div>
+
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Win Rate (%)</label>
-              <input
-                type="number"
-                value={winRate}
-                onChange={(e) => setWinRate(e.target.value)}
-                placeholder="78"
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                Bio / Strategy Description
+              </label>
+              <textarea
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                placeholder="BTC/ETH swing specialist with strict risk management..."
+                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2.5 text-sm text-white outline-none focus:border-amber-400"
+                rows={3}
               />
             </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">30d ROI (%)</label>
-              <input
-                type="number"
-                value={roi30d}
-                onChange={(e) => setRoi30d(e.target.value)}
-                placeholder="42"
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Risk</label>
-              <select
-                value={risk}
-                onChange={(e) => setRisk(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+
+            <div className="flex items-center justify-end gap-3 pt-3">
+              <button
+                type="button"
+                onClick={() => setModalOpen(false)}
+                disabled={submitting}
+                className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700"
               >
-                <option value="Low">Low</option>
-                <option value="Medium">Medium</option>
-                <option value="High">High</option>
-              </select>
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={onCreateTrader}
+                disabled={submitting}
+                className="rounded-xl bg-amber-400 px-5 py-2 text-xs font-bold text-slate-950 shadow-md hover:bg-amber-300"
+              >
+                {submitting ? "Creating..." : "Create Trader Profile"}
+              </button>
             </div>
           </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Bio</label>
-            <textarea
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
-              rows={2}
-              placeholder="BTC & ETH swing specialist..."
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={() => setModalOpen(false)}
-              className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              disabled={submitting}
-              onClick={onCreateTrader}
-              className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 hover:bg-blue-500"
-            >
-              {submitting ? "Creating…" : "Create Trader"}
-            </button>
-          </div>
-        </div>
-      </Modal>
+        </Modal>
+      ) : null}
     </div>
   );
 }

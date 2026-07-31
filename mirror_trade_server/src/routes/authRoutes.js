@@ -9,6 +9,7 @@ const {
   forgotPassword,
   resetPassword,
   changePassword,
+  sendOtp,
 } = require("../controllers/authController");
 const { protect } = require("../middleware/auth");
 const { authLimiter, verifyLimiter } = require("../middleware/rateLimit");
@@ -37,6 +38,9 @@ router.post("/signup", authLimiter, registerRules, validateRequest, signup);
 
 router.post("/login", authLimiter, loginRules, validateRequest, login);
 router.get("/me", protect, getMe);
+
+// Send / Resend OTP
+router.post("/send-otp", verifyLimiter, sendOtp);
 
 // Verify email/phone → triggers referral rewards once
 router.post("/verify", protect, verifyLimiter, verify);

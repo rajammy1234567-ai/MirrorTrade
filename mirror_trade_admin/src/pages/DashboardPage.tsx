@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
 import StatusBadge from "../components/StatusBadge";
 import {
@@ -12,11 +12,10 @@ import {
 import { formatDate, formatMoney, shortHash } from "../lib/currency";
 
 export default function DashboardPage() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [pendingDeposits, setPendingDeposits] = useState<DepositRow[]>([]);
-  const [pendingWithdrawals, setPendingWithdrawals] = useState<WithdrawRow[]>(
-    []
-  );
+  const [pendingWithdrawals, setPendingWithdrawals] = useState<WithdrawRow[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -45,153 +44,201 @@ export default function DashboardPage() {
 
   const cards = [
     {
-      label: "Total Users",
+      label: "Total Registered Users",
       value: stats?.totalUsers ?? 0,
-      hint: `${stats?.activeUsers ?? 0} active`,
-      tone: "from-blue-500 to-blue-600",
+      hint: `${stats?.activeUsers ?? 0} active users`,
+      tone: "from-amber-400 to-amber-500",
+      badge: "USERS",
     },
     {
-      label: "Level Capital",
-      value: formatMoney(stats?.totalLevelCapital ?? stats?.totalDeposits ?? 0),
-      hint: "VIP purchases (USD)",
-      tone: "from-indigo-500 to-violet-600",
+      label: "USDT Principal Capital",
+      value: formatMoney(stats?.totalUsdtBalance ?? stats?.totalDeposits ?? 0),
+      hint: "BNB Deposits Credited",
+      tone: "from-emerald-400 to-emerald-500",
+      badge: "DEPOSITS",
     },
     {
-      label: "USDT Deposits",
-      value: formatMoney(stats?.totalUsdtBalance ?? 0),
-      hint: "Spendable balance held",
-      tone: "from-cyan-500 to-teal-600",
-    },
-    {
-      label: "Earnings Pool",
+      label: "Withdrawable Earnings Pool",
       value: formatMoney(stats?.totalEarnings ?? 0),
-      hint: "Withdrawable wallets",
-      tone: "from-emerald-500 to-green-600",
+      hint: "Total User Wallet Balances",
+      tone: "from-cyan-400 to-blue-500",
+      badge: "EARNINGS",
     },
     {
-      label: "Pending Deposits",
+      label: "Pending BNB Deposits",
       value: stats?.pendingDeposits ?? 0,
-      hint: formatMoney(stats?.pendingDepositVolume ?? 0) + " volume",
-      tone: "from-amber-500 to-orange-500",
+      hint: formatMoney(stats?.pendingDepositVolume ?? 0) + " volume awaiting credit",
+      tone: "from-orange-400 to-amber-500",
+      badge: "ACTION REQ",
     },
     {
       label: "Pending Withdrawals",
       value: stats?.pendingWithdrawals ?? 0,
-      hint: formatMoney(stats?.pendingWithdrawVolume ?? 0) + " volume",
-      tone: "from-rose-500 to-pink-600",
+      hint: formatMoney(stats?.pendingWithdrawVolume ?? 0) + " payout requests",
+      tone: "from-rose-400 to-red-500",
+      badge: "PAYOUT REQ",
     },
   ];
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
-        title="Dashboard"
-        description="Live overview of users, dual-wallet balances, and ops queues that need action."
+        title="Admin Overview Dashboard"
+        description="Real-time control center for user balances, BNB deposits, and payout queues."
         actions={
           <button
             type="button"
             onClick={load}
             disabled={loading}
-            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
+            className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-bold text-amber-400 shadow-sm transition hover:bg-slate-700 hover:text-amber-300 disabled:opacity-60"
           >
-            {loading ? "Refreshing…" : "Refresh"}
+            {loading ? "Refreshing..." : "⚡ Refresh Data"}
           </button>
         }
       />
 
       {error ? (
-        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-400">
           {error}
         </div>
       ) : null}
 
+      {/* Quick Action Navigation Bar */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <button
+          type="button"
+          onClick={() => navigate("/deposits?status=pending")}
+          className="flex items-center justify-between rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 to-amber-500/5 p-4 text-left shadow-sm transition hover:border-amber-400/60 hover:from-amber-500/20"
+        >
+          <div>
+            <p className="text-xs font-bold text-amber-400 uppercase tracking-wider">Deposits Queue</p>
+            <p className="text-sm font-semibold text-white mt-0.5">Approve BNB Deposits</p>
+          </div>
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-400/20 text-amber-400 font-bold">
+            →
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => navigate("/withdrawals?status=pending")}
+          className="flex items-center justify-between rounded-xl border border-rose-500/30 bg-gradient-to-r from-rose-500/10 to-rose-500/5 p-4 text-left shadow-sm transition hover:border-rose-400/60 hover:from-rose-500/20"
+        >
+          <div>
+            <p className="text-xs font-bold text-rose-400 uppercase tracking-wider">Payout Queue</p>
+            <p className="text-sm font-semibold text-white mt-0.5">Process Withdrawals</p>
+          </div>
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-400/20 text-rose-400 font-bold">
+            →
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => navigate("/signals")}
+          className="flex items-center justify-between rounded-xl border border-cyan-500/30 bg-gradient-to-r from-cyan-500/10 to-cyan-500/5 p-4 text-left shadow-sm transition hover:border-cyan-400/60 hover:from-cyan-500/20"
+        >
+          <div>
+            <p className="text-xs font-bold text-cyan-400 uppercase tracking-wider">Trading Signals</p>
+            <p className="text-sm font-semibold text-white mt-0.5">Publish New Signal</p>
+          </div>
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-400/20 text-cyan-400 font-bold">
+            +
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => navigate("/users")}
+          className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 to-emerald-500/5 p-4 text-left shadow-sm transition hover:border-emerald-400/60 hover:from-emerald-500/20"
+        >
+          <div>
+            <p className="text-xs font-bold text-emerald-400 uppercase tracking-wider">User Directory</p>
+            <p className="text-sm font-semibold text-white mt-0.5">Manage Users & Balances</p>
+          </div>
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-400/20 text-emerald-400 font-bold">
+            👥
+          </span>
+        </button>
+      </div>
+
       {loading && !stats ? (
-        <p className="text-slate-500">Loading dashboard…</p>
+        <div className="py-12 text-center text-sm font-medium text-slate-400">
+          Loading metrics...
+        </div>
       ) : (
         <>
-          <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {/* KPI Analytics Cards Grid */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             {cards.map((card) => (
               <div
                 key={card.label}
-                className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm"
+                className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-lg relative"
               >
-                <div className={`h-1 bg-gradient-to-r ${card.tone}`} />
-                <div className="p-5">
-                  <p className="text-sm font-medium text-slate-500">
-                    {card.label}
-                  </p>
-                  <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
-                    {card.value}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-400">{card.hint}</p>
+                <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${card.tone}`} />
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">
+                    {card.badge}
+                  </span>
                 </div>
+                <p className="mt-3 text-2xl font-black tracking-tight text-white">
+                  {card.value}
+                </p>
+                <p className="mt-1 text-xs font-medium text-slate-400">{card.label}</p>
+                <p className="mt-2 text-[11px] text-slate-400">{card.hint}</p>
               </div>
             ))}
           </div>
 
-          <div className="mb-6 grid gap-3 sm:grid-cols-3">
-            <Link
-              to="/deposits?status=pending"
-              className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900 transition hover:bg-amber-100"
-            >
-              Review pending deposits →
-            </Link>
-            <Link
-              to="/withdrawals?status=pending"
-              className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900 transition hover:bg-rose-100"
-            >
-              Process withdrawals →
-            </Link>
-            <Link
-              to="/users"
-              className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-900 transition hover:bg-blue-100"
-            >
-              Manage users & capital →
-            </Link>
-          </div>
-
+          {/* Activity Tables Grid */}
           <div className="grid gap-6 xl:grid-cols-2">
-            <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+            {/* Pending Deposits Section */}
+            <section className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 shadow-xl">
+              <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4 bg-slate-900/50">
                 <div>
-                  <h2 className="font-semibold text-slate-900">
-                    Pending BNB deposits
+                  <h2 className="font-bold text-white text-base">
+                    Pending BNB Deposits
                   </h2>
-                  <p className="text-xs text-slate-500">
-                    Approve after on-chain confirmation
+                  <p className="text-xs text-slate-400">
+                    Verify & credit USDT principal to user accounts
                   </p>
                 </div>
                 <Link
-                  to="/deposits"
-                  className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                  to="/deposits?status=pending"
+                  className="rounded-lg bg-amber-400/10 border border-amber-400/30 px-3 py-1.5 text-xs font-bold text-amber-400 hover:bg-amber-400/20"
                 >
-                  View all
+                  Manage All →
                 </Link>
               </div>
-              <div className="divide-y divide-slate-100">
+              <div className="divide-y divide-slate-800/60">
                 {pendingDeposits.length === 0 ? (
-                  <p className="px-5 py-10 text-center text-sm text-slate-400">
-                    No pending deposits
+                  <p className="px-5 py-10 text-center text-xs font-medium text-slate-400">
+                    ✨ No pending deposits requiring approval
                   </p>
                 ) : (
                   pendingDeposits.map((d) => (
                     <div
                       key={d.id}
-                      className="flex items-center justify-between gap-3 px-5 py-3.5"
+                      className="flex items-center justify-between gap-3 px-5 py-4 hover:bg-slate-900/30 transition"
                     >
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-slate-900">
-                          {d.user?.name || "User"} · {d.user?.email}
+                        <p className="truncate text-sm font-bold text-white">
+                          {d.user?.name || "User"}
                         </p>
-                        <p className="text-xs text-slate-500">
-                          {formatDate(d.createdAt)} · Tx {shortHash(d.txHash)}
+                        <p className="truncate text-xs text-slate-400">
+                          {d.user?.email}
+                        </p>
+                        <p className="mt-1 font-mono text-[11px] text-amber-400/90">
+                          Tx: {shortHash(d.txHash)} · {formatDate(d.createdAt)}
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-semibold text-slate-900">
-                          {formatMoney(d.amountUsdt)}
+                        <p className="text-sm font-black text-emerald-400">
+                          +{formatMoney(d.amountUsdt)}
                         </p>
-                        <StatusBadge status={d.status} />
+                        <div className="mt-1.5 flex justify-end">
+                          <StatusBadge status={d.status} />
+                        </div>
                       </div>
                     </div>
                   ))
@@ -199,47 +246,53 @@ export default function DashboardPage() {
               </div>
             </section>
 
-            <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+            {/* Pending Withdrawals Section */}
+            <section className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 shadow-xl">
+              <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4 bg-slate-900/50">
                 <div>
-                  <h2 className="font-semibold text-slate-900">
-                    Pending withdrawals
+                  <h2 className="font-bold text-white text-base">
+                    Pending Earnings Withdrawals
                   </h2>
-                  <p className="text-xs text-slate-500">
-                    Pay from earnings only (walletBalance)
+                  <p className="text-xs text-slate-400">
+                    Process user payouts from withdrawable earnings
                   </p>
                 </div>
                 <Link
-                  to="/withdrawals"
-                  className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                  to="/withdrawals?status=pending"
+                  className="rounded-lg bg-rose-400/10 border border-rose-400/30 px-3 py-1.5 text-xs font-bold text-rose-400 hover:bg-rose-400/20"
                 >
-                  View all
+                  Manage All →
                 </Link>
               </div>
-              <div className="divide-y divide-slate-100">
+              <div className="divide-y divide-slate-800/60">
                 {pendingWithdrawals.length === 0 ? (
-                  <p className="px-5 py-10 text-center text-sm text-slate-400">
-                    No pending withdrawals
+                  <p className="px-5 py-10 text-center text-xs font-medium text-slate-400">
+                    ✨ No pending withdrawal requests
                   </p>
                 ) : (
                   pendingWithdrawals.map((w) => (
                     <div
                       key={w.id}
-                      className="flex items-center justify-between gap-3 px-5 py-3.5"
+                      className="flex items-center justify-between gap-3 px-5 py-4 hover:bg-slate-900/30 transition"
                     >
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-slate-900">
-                          {w.user?.name || "User"} · {w.user?.email}
+                        <p className="truncate text-sm font-bold text-white">
+                          {w.user?.name || "User"}
                         </p>
-                        <p className="truncate font-mono text-xs text-slate-500">
-                          {shortHash(w.payoutAddress, 10, 8)}
+                        <p className="truncate text-xs text-slate-400">
+                          {w.user?.email}
+                        </p>
+                        <p className="mt-1 font-mono text-[11px] text-slate-400">
+                          Payout: {shortHash(w.payoutAddress, 8, 6)}
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-semibold text-slate-900">
-                          {formatMoney(w.amount)}
+                        <p className="text-sm font-black text-rose-400">
+                          -{formatMoney(w.amount)}
                         </p>
-                        <StatusBadge status={w.status} />
+                        <div className="mt-1.5 flex justify-end">
+                          <StatusBadge status={w.status} />
+                        </div>
                       </div>
                     </div>
                   ))

@@ -132,13 +132,24 @@ const register = async (req, res) => {
 
     const token = generateToken(user._id);
 
+    // Generate & send real verification OTP email on signup
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    user.resetPasswordCode = otpCode;
+    user.resetPasswordExpire = new Date(Date.now() + 15 * 60 * 1000);
+    await user.save();
+
+    await sendOtpEmail(
+      emailNorm,
+      otpCode,
+      "Verify Your Email OTP - MirrorTrade",
+      "Account Email Verification"
+    ).catch((err) => console.error("[Auth] Signup OTP email warning:", err.message));
+
     res.status(201).json({
       success: true,
       token,
       user: formatUser(user),
-      message: referredBy
-        ? "Account created. Verify email/phone to unlock referral rewards."
-        : "Account created successfully.",
+      message: "Account created successfully. Verification OTP sent to your email.",
     });
   } catch (error) {
     const status = error.statusCode || 500;
@@ -391,8 +402,46 @@ const changePassword = async (req, res) => {
       success: true,
       message: "Password changed successfully.",
     });
+// @desc    Send / Resend verification OTP code
+// @route   POST /api/auth/send-otp
+// @access  Public / Private
+const sendOtp = async (req, res) => {
+  try {
+    let emailNorm = null;
+    let user = req.user;
+
+    if (user) {
+      emailNorm = user.email;
+    } else if (req.body.email) {
+      emailNorm = String(req.body.email).trim().toLowerCase();
+      user = await User.findOne({ email: emailNorm });
+    }
+
+    if (!emailNorm) {
+      return res.status(400).json({ success: false, message: "Email is required to send OTP" });
+    }
+
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    if (user) {
+      user.resetPasswordCode = otpCode;
+      user.resetPasswordExpire = new Date(Date.now() + 15 * 60 * 1000);
+      await user.save();
+    }
+
+    await sendOtpEmail(
+      emailNorm,
+      otpCode,
+      "Verification OTP Code - MirrorTrade",
+      "Verify Your MirrorTrade Account"
+    ).catch((err) => console.error("[Auth] sendOtp warning:", err.message));
+
+    res.json({
+      success: true,
+      message: `Verification code sent to ${emailNorm}. Check your email inbox!`,
+      otpCode,
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message || "Failed to change password" });
+    res.status(500).json({ success: false, message: error.message || "Failed to send OTP" });
   }
 };
 
@@ -406,4 +455,5 @@ module.exports = {
   forgotPassword,
   resetPassword,
   changePassword,
+  sendOtp,
 };

@@ -4,7 +4,7 @@ import Modal from "../components/Modal";
 import PageHeader from "../components/PageHeader";
 import StatusBadge from "../components/StatusBadge";
 import { api, getErrorMessage, type AuthUser } from "../lib/api";
-import { formatDate, formatMoney } from "../lib/currency";
+import { formatMoney } from "../lib/currency";
 
 type CapitalKind = "vip" | "usdt";
 type CapitalMode = "set" | "add";
@@ -16,9 +16,7 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<"all" | "user" | "admin">("all");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">(
-    "all"
-  );
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
 
   const [modalUser, setModalUser] = useState<AuthUser | null>(null);
   const [kind, setKind] = useState<CapitalKind>("vip");
@@ -118,9 +116,7 @@ export default function UsersPage() {
       await api.patch(`/admin/users/${user.id}/status`, {
         isActive: !user.isActive,
       });
-      setSuccess(
-        `${user.name} is now ${user.isActive ? "inactive" : "active"}`
-      );
+      setSuccess(`${user.name} is now ${user.isActive ? "inactive" : "active"}`);
       await load();
     } catch (err) {
       setError(getErrorMessage(err, "Failed to update status"));
@@ -130,177 +126,172 @@ export default function UsersPage() {
   };
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
-        title="Users"
-        description="Manage accounts, dual wallet balances (USDT deposit + earnings), VIP capital, and access status."
+        title="User Accounts Directory"
+        description="Manage user balances, VIP rank capital, referral codes, and access permissions."
         actions={
           <button
             type="button"
             onClick={load}
             disabled={loading}
-            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
+            className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-bold text-amber-400 shadow-sm transition hover:bg-slate-700 hover:text-amber-300 disabled:opacity-60"
           >
-            {loading ? "Loading…" : "Refresh"}
+            {loading ? "Refreshing..." : "⚡ Refresh Directory"}
           </button>
         }
       />
 
       {error ? (
-        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-400">
           {error}
         </div>
       ) : null}
       {success ? (
-        <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-400">
           {success}
         </div>
       ) : null}
 
-      <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:flex-row lg:items-center">
-        <div className="relative flex-1">
-          <svg
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M21 21l-4.35-4.35M11 18a7 7 0 100-14 7 7 0 000 14z"
-            />
-          </svg>
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search name, email, phone, referral code…"
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm outline-none ring-blue-500 focus:bg-white focus:ring-2"
-          />
+      {/* Filter and Search Bar */}
+      <div className="flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-950 p-4 shadow-xl lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap gap-2">
+          <div className="flex rounded-xl bg-slate-900 p-1 border border-slate-800">
+            {(["all", "user", "admin"] as const).map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => setRoleFilter(r)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-bold capitalize transition ${
+                  roleFilter === r
+                    ? "bg-amber-400 text-slate-950 shadow-md shadow-amber-400/20"
+                    : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                }`}
+              >
+                {r}s
+              </button>
+            ))}
+          </div>
+
+          <div className="flex rounded-xl bg-slate-900 p-1 border border-slate-800">
+            {(["all", "active", "inactive"] as const).map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setStatusFilter(s)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-bold capitalize transition ${
+                  statusFilter === s
+                    ? "bg-slate-700 text-white shadow-sm"
+                    : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                }`}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
         </div>
-        <select
-          value={roleFilter}
-          onChange={(e) =>
-            setRoleFilter(e.target.value as "all" | "user" | "admin")
-          }
-          className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm"
-        >
-          <option value="all">All roles</option>
-          <option value="user">Users</option>
-          <option value="admin">Admins</option>
-        </select>
-        <select
-          value={statusFilter}
-          onChange={(e) =>
-            setStatusFilter(e.target.value as "all" | "active" | "inactive")
-          }
-          className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm"
-        >
-          <option value="all">All status</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-        </select>
-        <p className="text-sm text-slate-500 lg:ml-auto">
-          {filtered.length} of {users.length}
-        </p>
+
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="🔍 Search name, email, referral code, or phone..."
+          className="w-full rounded-xl border border-slate-800 bg-slate-900 px-4 py-2.5 text-sm text-white placeholder-slate-500 outline-none focus:border-amber-400/50 focus:ring-1 focus:ring-amber-400/50 lg:max-w-md"
+        />
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      {/* Users Table */}
+      <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 shadow-xl">
         {loading ? (
-          <p className="px-5 py-12 text-center text-slate-500">Loading users…</p>
+          <p className="px-5 py-12 text-center text-sm font-medium text-slate-400">
+            Loading users directory...
+          </p>
         ) : filtered.length === 0 ? (
           <EmptyState
             title="No users found"
-            description="Try a different search or filter."
+            description="Adjust your search or filter parameters to view matching accounts."
           />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <thead className="bg-slate-900 text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800">
                 <tr>
-                  <th className="px-4 py-3 font-semibold">User</th>
-                  <th className="px-4 py-3 font-semibold">Level capital</th>
-                  <th className="px-4 py-3 font-semibold">USDT</th>
-                  <th className="px-4 py-3 font-semibold">Earnings</th>
-                  <th className="px-4 py-3 font-semibold">Exchange</th>
-                  <th className="px-4 py-3 font-semibold">Ranks</th>
-                  <th className="px-4 py-3 font-semibold">Referral</th>
-                  <th className="px-4 py-3 font-semibold">Status</th>
-                  <th className="px-4 py-3 font-semibold">Actions</th>
+                  <th className="px-5 py-4">User Info</th>
+                  <th className="px-5 py-4">USDT Deposit Principal</th>
+                  <th className="px-5 py-4">Withdrawable Earnings</th>
+                  <th className="px-5 py-4">VIP Level Ranks</th>
+                  <th className="px-5 py-4">Referral Code</th>
+                  <th className="px-5 py-4">Status</th>
+                  <th className="px-5 py-4 text-right">Quick Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-800/60">
                 {filtered.map((u) => (
-                  <tr
-                    key={u.id}
-                    className="border-t border-slate-100 hover:bg-slate-50/70"
-                  >
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-slate-900">{u.name}</p>
-                      <p className="text-xs text-slate-500">{u.email}</p>
-                      <p className="mt-0.5 text-[11px] text-slate-400">
-                        Joined {formatDate(u.createdAt)}
+                  <tr key={u.id} className="hover:bg-slate-900/40 transition">
+                    <td className="px-5 py-4">
+                      <p className="font-bold text-white flex items-center gap-2">
+                        {u.name}
+                        {u.role === "admin" ? (
+                          <span className="rounded bg-amber-400/10 border border-amber-400/30 px-1.5 py-0.5 text-[10px] font-extrabold text-amber-400">
+                            ADMIN
+                          </span>
+                        ) : null}
+                      </p>
+                      <p className="text-xs text-slate-400">{u.email}</p>
+                    </td>
+                    <td className="px-5 py-4">
+                      <p className="font-black text-amber-400">
+                        {formatMoney(u.totalDeposit ?? u.usdtBalance ?? 0)} USDT
                       </p>
                     </td>
-                    <td className="px-4 py-3 font-medium text-slate-800">
-                      {formatMoney(u.totalDeposit || 0)}
-                    </td>
-                    <td className="px-4 py-3 text-slate-700">
-                      {formatMoney(u.usdtBalance || 0)}
-                    </td>
-                    <td className="px-4 py-3 text-slate-700">
-                      {formatMoney(u.walletBalance || 0)}
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">
-                      <p>{formatMoney(u.exchangeCapital || 0)}</p>
-                      <p className="text-[11px] uppercase text-slate-400">
-                        {u.primaryExchange || u.capitalSource || "—"}
+                    <td className="px-5 py-4">
+                      <p className="font-black text-emerald-400">
+                        {formatMoney(u.walletBalance ?? 0)} USDT
                       </p>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-1">
-                        <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-1.5">
+                        <span className="rounded bg-indigo-500/20 border border-indigo-500/40 px-2 py-0.5 text-xs font-bold text-indigo-400">
                           {u.tVipRank || "NONE"}
                         </span>
-                        <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                        <span className="rounded bg-cyan-500/20 border border-cyan-500/40 px-2 py-0.5 text-xs font-bold text-cyan-400">
                           {u.cVipRank || "NONE"}
                         </span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 font-mono text-xs text-slate-500">
+                    <td className="px-5 py-4 font-mono text-xs text-slate-300">
                       {u.referralCode || "—"}
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-col gap-1">
-                        <StatusBadge
-                          status={u.isActive ? "active" : "inactive"}
-                        />
-                        <StatusBadge status={u.role} />
-                      </div>
+                    <td className="px-5 py-4">
+                      <StatusBadge status={u.isActive ? "active" : "inactive"} />
                     </td>
-                    <td className="px-4 py-3">
-                      {u.role === "user" ? (
-                        <div className="flex flex-wrap gap-1.5">
+                    <td className="px-5 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openCapitalModal(u)}
+                          className="rounded-lg bg-amber-400/10 border border-amber-400/30 px-3 py-1.5 text-xs font-bold text-amber-400 hover:bg-amber-400/20"
+                        >
+                          ✏️ Edit Balance
+                        </button>
+                        {u.role !== "admin" ? (
                           <button
                             type="button"
-                            onClick={() => openCapitalModal(u)}
-                            className="rounded-lg bg-blue-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-blue-500"
-                          >
-                            Adjust
-                          </button>
-                          <button
-                            type="button"
-                            disabled={busyId === u.id}
                             onClick={() => toggleStatus(u)}
-                            className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                            disabled={busyId === u.id}
+                            className={`rounded-lg border px-3 py-1.5 text-xs font-bold transition ${
+                              u.isActive
+                                ? "bg-rose-500/10 border-rose-500/30 text-rose-400 hover:bg-rose-500/20"
+                                : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
+                            }`}
                           >
-                            {u.isActive ? "Deactivate" : "Activate"}
+                            {busyId === u.id
+                              ? "..."
+                              : u.isActive
+                                ? "Deactivate"
+                                : "Activate"}
                           </button>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-slate-400">Protected</span>
-                      )}
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -310,48 +301,16 @@ export default function UsersPage() {
         )}
       </div>
 
-      <Modal
-        open={!!modalUser}
-        onClose={closeModal}
-        title="Adjust balances"
-        subtitle={
-          modalUser
-            ? `${modalUser.name} · ${modalUser.email}`
-            : undefined
-        }
-      >
-        {modalUser ? (
+      {/* Capital / Balance Adjust Modal */}
+      {modalUser ? (
+        <Modal
+          title={`Adjust Balance · ${modalUser.name}`}
+          onClose={closeModal}
+        >
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-3 text-xs text-slate-600">
-              <div>
-                <p className="text-slate-400">Level capital</p>
-                <p className="font-semibold text-slate-800">
-                  {formatMoney(modalUser.totalDeposit || 0)}
-                </p>
-              </div>
-              <div>
-                <p className="text-slate-400">USDT balance</p>
-                <p className="font-semibold text-slate-800">
-                  {formatMoney(modalUser.usdtBalance || 0)}
-                </p>
-              </div>
-              <div>
-                <p className="text-slate-400">Earnings</p>
-                <p className="font-semibold text-slate-800">
-                  {formatMoney(modalUser.walletBalance || 0)}
-                </p>
-              </div>
-              <div>
-                <p className="text-slate-400">Ranks</p>
-                <p className="font-semibold text-slate-800">
-                  {modalUser.tVipRank || "NONE"} / {modalUser.cVipRank || "NONE"}
-                </p>
-              </div>
-            </div>
-
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                What to update
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                Balance Type
               </label>
               <div className="grid grid-cols-2 gap-2">
                 <button
@@ -360,87 +319,80 @@ export default function UsersPage() {
                     setKind("vip");
                     setAmount(String(modalUser.totalDeposit ?? 0));
                   }}
-                  className={`rounded-xl border px-3 py-2 text-sm font-medium ${
+                  className={`rounded-xl border p-3 text-xs font-bold transition ${
                     kind === "vip"
-                      ? "border-blue-500 bg-blue-50 text-blue-700"
-                      : "border-slate-200 text-slate-600"
+                      ? "border-amber-400 bg-amber-400/10 text-amber-400"
+                      : "border-slate-800 bg-slate-900 text-slate-400"
                   }`}
                 >
-                  VIP capital
+                  USDT Deposit Principal (VIP Capital)
                 </button>
                 <button
                   type="button"
                   onClick={() => {
                     setKind("usdt");
-                    setAmount(String(modalUser.usdtBalance ?? 0));
+                    setAmount(String(modalUser.walletBalance ?? 0));
                   }}
-                  className={`rounded-xl border px-3 py-2 text-sm font-medium ${
+                  className={`rounded-xl border p-3 text-xs font-bold transition ${
                     kind === "usdt"
-                      ? "border-blue-500 bg-blue-50 text-blue-700"
-                      : "border-slate-200 text-slate-600"
+                      ? "border-emerald-400 bg-emerald-400/10 text-emerald-400"
+                      : "border-slate-800 bg-slate-900 text-slate-400"
                   }`}
                 >
-                  USDT deposit
+                  Withdrawable Wallet Earnings
                 </button>
               </div>
-              <p className="mt-1.5 text-xs text-slate-500">
-                {kind === "vip"
-                  ? "VIP capital drives T-VIP / C-VIP ranks (level purchases)."
-                  : "USDT is spendable deposit balance for buying levels — not withdrawable."}
-              </p>
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                Mode
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                Operation Mode
               </label>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setMode("set")}
-                  className={`rounded-xl border px-3 py-2 text-sm font-medium ${
+                  className={`rounded-xl border p-2.5 text-xs font-bold transition ${
                     mode === "set"
-                      ? "border-slate-800 bg-slate-900 text-white"
-                      : "border-slate-200 text-slate-600"
+                      ? "border-slate-600 bg-slate-800 text-white"
+                      : "border-slate-800 bg-slate-900 text-slate-400"
                   }`}
                 >
-                  Set absolute
+                  Set Absolute Amount
                 </button>
                 <button
                   type="button"
                   onClick={() => setMode("add")}
-                  className={`rounded-xl border px-3 py-2 text-sm font-medium ${
+                  className={`rounded-xl border p-2.5 text-xs font-bold transition ${
                     mode === "add"
-                      ? "border-slate-800 bg-slate-900 text-white"
-                      : "border-slate-200 text-slate-600"
+                      ? "border-slate-600 bg-slate-800 text-white"
+                      : "border-slate-800 bg-slate-900 text-slate-400"
                   }`}
                 >
-                  Add amount
+                  Add / Credit Amount
                 </button>
               </div>
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                Amount (USD / USDT)
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                Amount (USDT)
               </label>
               <input
                 type="number"
-                min={0}
-                step="0.01"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-blue-500 focus:ring-2"
-                placeholder="0.00"
+                placeholder="Enter amount..."
+                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2.5 text-sm text-white font-mono outline-none focus:border-amber-400"
               />
             </div>
 
-            <div className="flex justify-end gap-2 pt-1">
+            <div className="flex items-center justify-end gap-3 pt-3">
               <button
                 type="button"
                 onClick={closeModal}
                 disabled={saving}
-                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700"
               >
                 Cancel
               </button>
@@ -448,14 +400,14 @@ export default function UsersPage() {
                 type="button"
                 onClick={submitCapital}
                 disabled={saving}
-                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-60"
+                className="rounded-xl bg-amber-400 px-5 py-2 text-xs font-bold text-slate-950 shadow-md hover:bg-amber-300"
               >
-                {saving ? "Saving…" : "Save changes"}
+                {saving ? "Saving..." : "Save Changes"}
               </button>
             </div>
           </div>
-        ) : null}
-      </Modal>
+        </Modal>
+      ) : null}
     </div>
   );
 }

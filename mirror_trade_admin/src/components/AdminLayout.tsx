@@ -1,11 +1,14 @@
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { api, type DashboardStats } from "../lib/api";
 
 const NAV = [
   {
     to: "/",
     end: true,
     label: "Dashboard",
+    badgeKey: null,
     icon: (
       <path
         strokeLinecap="round"
@@ -17,6 +20,7 @@ const NAV = [
   {
     to: "/users",
     label: "Users",
+    badgeKey: null,
     icon: (
       <path
         strokeLinecap="round"
@@ -28,6 +32,7 @@ const NAV = [
   {
     to: "/deposits",
     label: "Deposits",
+    badgeKey: "pendingDeposits" as const,
     icon: (
       <path
         strokeLinecap="round"
@@ -39,6 +44,7 @@ const NAV = [
   {
     to: "/withdrawals",
     label: "Withdrawals",
+    badgeKey: "pendingWithdrawals" as const,
     icon: (
       <path
         strokeLinecap="round"
@@ -50,6 +56,7 @@ const NAV = [
   {
     to: "/signals",
     label: "Signals",
+    badgeKey: null,
     icon: (
       <path
         strokeLinecap="round"
@@ -61,6 +68,7 @@ const NAV = [
   {
     to: "/traders",
     label: "Traders",
+    badgeKey: null,
     icon: (
       <path
         strokeLinecap="round"
@@ -74,6 +82,20 @@ const NAV = [
 export default function AdminLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+
+  useEffect(() => {
+    const fetchStats = () => {
+      api.get<{ success: boolean; stats: DashboardStats }>("/admin/stats")
+        .then((res) => {
+          if (res.data?.success) setStats(res.data.stats);
+        })
+        .catch(() => undefined);
+    };
+    fetchStats();
+    const interval = setInterval(fetchStats, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -81,59 +103,78 @@ export default function AdminLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 lg:flex">
+    <div className="min-h-screen bg-slate-900 text-slate-100 lg:flex">
       {/* Sidebar */}
       <aside className="border-b border-slate-800 bg-slate-950 text-white lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col lg:border-b-0 lg:border-r">
-        <div className="flex items-center gap-3 px-5 py-5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-cyan-400 text-sm font-bold shadow-lg shadow-blue-500/30">
-            MT
-          </div>
-          <div>
-            <p className="text-sm font-bold tracking-tight">MirrorTrade</p>
-            <p className="text-[11px] font-medium uppercase tracking-widest text-slate-400">
-              Admin Console
-            </p>
+        <div className="flex items-center justify-between px-5 py-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 text-sm font-black text-slate-950 shadow-lg shadow-amber-500/20">
+              MT
+            </div>
+            <div>
+              <p className="text-sm font-bold tracking-tight text-white">MirrorTrade</p>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-400">
+                Admin Console
+              </p>
+            </div>
           </div>
         </div>
 
-        <nav className="flex gap-1 overflow-x-auto px-3 pb-3 lg:flex-1 lg:flex-col lg:overflow-visible lg:px-3 lg:pb-0">
-          {NAV.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) =>
-                `flex shrink-0 items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                  isActive
-                    ? "bg-white/10 text-white shadow-inner"
-                    : "text-slate-400 hover:bg-white/5 hover:text-white"
-                }`
-              }
-            >
-              <svg
-                className="h-5 w-5 shrink-0"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={1.75}
+        <nav className="flex gap-1.5 overflow-x-auto px-3 pb-3 lg:flex-1 lg:flex-col lg:overflow-visible lg:px-3 lg:pb-0">
+          {NAV.map((item) => {
+            const count = item.badgeKey && stats ? Number(stats[item.badgeKey]) || 0 : 0;
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                className={({ isActive }) =>
+                  `flex shrink-0 items-center justify-between rounded-xl px-3.5 py-3 text-sm font-semibold transition ${
+                    isActive
+                      ? "bg-amber-400/10 text-amber-400 border border-amber-400/30 shadow-sm"
+                      : "text-slate-400 hover:bg-slate-900 hover:text-slate-200"
+                  }`
+                }
               >
-                {item.icon}
-              </svg>
-              {item.label}
-            </NavLink>
-          ))}
+                <div className="flex items-center gap-3">
+                  <svg
+                    className="h-5 w-5 shrink-0"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={1.75}
+                  >
+                    {item.icon}
+                  </svg>
+                  <span>{item.label}</span>
+                </div>
+                {count > 0 ? (
+                  <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-amber-500 px-1.5 text-[11px] font-bold text-slate-950">
+                    {count}
+                  </span>
+                ) : null}
+              </NavLink>
+            );
+          })}
         </nav>
 
-        <div className="mt-auto hidden border-t border-white/10 p-4 lg:block">
-          <div className="rounded-xl bg-white/5 px-3 py-3">
-            <p className="truncate text-sm font-medium text-white">
-              {user?.name || "Admin"}
-            </p>
-            <p className="truncate text-xs text-slate-400">{user?.email}</p>
+        <div className="mt-auto hidden border-t border-slate-800 p-4 lg:block">
+          <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3.5">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-400/10 font-bold text-amber-400">
+                {user?.name?.slice(0, 1).toUpperCase() || "A"}
+              </div>
+              <div className="overflow-hidden">
+                <p className="truncate text-sm font-semibold text-white">
+                  {user?.name || "Super Admin"}
+                </p>
+                <p className="truncate text-xs text-slate-400">{user?.email}</p>
+              </div>
+            </div>
             <button
               type="button"
               onClick={handleLogout}
-              className="mt-3 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-white/10"
+              className="mt-3 w-full rounded-lg border border-slate-700 bg-slate-800 py-2 text-xs font-semibold text-slate-300 transition hover:bg-slate-700 hover:text-white"
             >
               Sign out
             </button>
@@ -143,27 +184,25 @@ export default function AdminLayout() {
 
       {/* Main */}
       <div className="flex min-h-screen flex-1 flex-col lg:pl-64">
-        <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/90 backdrop-blur">
+        <header className="sticky top-0 z-20 border-b border-slate-800 bg-slate-950/80 backdrop-blur">
           <div className="flex items-center justify-between gap-4 px-4 py-3 sm:px-6">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-widest text-blue-600">
-                Operations
-              </p>
-              <p className="text-sm text-slate-500">
-                USD / USDT · BNB deposits · earnings withdrawals
+            <div className="flex items-center gap-2">
+              <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                Live Admin Terminal
               </p>
             </div>
             <div className="flex items-center gap-3">
               <div className="hidden text-right sm:block">
-                <p className="text-sm font-medium text-slate-900">
+                <p className="text-sm font-semibold text-white">
                   {user?.name}
                 </p>
-                <p className="text-xs text-slate-500">{user?.email}</p>
+                <p className="text-xs text-slate-400">{user?.email}</p>
               </div>
               <button
                 type="button"
                 onClick={handleLogout}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 lg:hidden"
+                className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800 lg:hidden"
               >
                 Logout
               </button>
@@ -171,7 +210,7 @@ export default function AdminLayout() {
           </div>
         </header>
 
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+        <main className="flex-1 bg-slate-900 px-4 py-6 sm:px-6 lg:px-8">
           <Outlet />
         </main>
       </div>
